@@ -118,8 +118,8 @@ class AIAgent:
         # Add edge from finalize to end
         workflow.add_edge("agent_finalize", END)
         
-        # Compile with increased recursion limit for multi-step workflows
-        return workflow.compile(recursion_limit=50)
+        # Compile the workflow
+        return workflow.compile()
     
     async def _agent_decide_node(self, state: AgentState) -> AgentState:
         """
@@ -137,12 +137,25 @@ class AIAgent:
                 last_user_msg = msg.content
                 break
         
+        # Build conversation context for decision
+        recent_history = state["memory"].chat_history[-5:] if state["memory"].chat_history else []
+        history_context = "\n".join([f"{msg.role}: {msg.content[:100]}" for msg in recent_history]) if recent_history else "No previous conversation"
+        
+        # Build list of already called tools with their arguments to prevent duplicates
+        tools_called_info = [
+            f"{tc.tool_name}({tc.arguments})"
+            for tc in state["tools_called"]
+        ]
+        
         # Create decision prompt - MUST return ONLY JSON, nothing else
         decision_prompt = f"""
 You must analyze the user's request and respond with ONLY a valid JSON object, nothing else.
 
+Recent conversation context:
+{history_context}
+
 Available tools:
-- weather: Get weather forecast (params: city OR lat/lon)
+- weather: Get weather forecast (params: city OR lat/lon) - ONLY provides current + 2 day future forecast, NO historical data
 - geocode: Convert address to coordinates or reverse (params: address OR lat/lon)
 - ip_geolocation: Get location from IP address (params: ip_address)
 - fx_rates: Get currency exchange rates (params: base, target, optional date)
@@ -152,25 +165,29 @@ Available tools:
 
 User's original request: {last_user_msg}
 
-Tools already called: {[tc.tool_name for tc in state["tools_called"]]}
+Tools already called with their arguments: {tools_called_info}
 
-IMPORTANT: If the user requested multiple tasks, execute them ONE AT A TIME.
-Check what tools have been called already. If there are more tasks to complete, call the next tool.
-Only use "final_answer" when ALL requested tasks are complete.
+CRITICAL RULES:
+1. NEVER call the same tool with the same arguments twice
+2. If a tool was called and couldn't provide the data (e.g., historical weather), do NOT retry - move to final_answer
+3. If the user asks for something a tool cannot do (like past weather data), explain the limitation in final_answer
+4. If the user requested multiple DIFFERENT tasks, execute them ONE AT A TIME
+5. Only use "final_answer" when ALL requested tasks are complete OR a task is impossible
 
-Respond with ONLY this JSON structure (no other text):
+Respond with ONLY this JSON structure (no other text, no markdown):
 {{
   "action": "call_tool",
-  "tool_name": "weather",
-  "arguments": {{"city": "Budapest"}},
-  "reasoning": "brief explanation of which task this addresses"
+  "tool_name": "TOOL_NAME_HERE",
+  "arguments": {{...}},
+  "reasoning": "brief explanation"
 }}
 
-OR if ALL tasks are complete:
-{{
-  "action": "final_answer",
-  "reasoning": "all requested tasks have been completed"
-}}
+Examples:
+- Weather: {{"action": "call_tool", "tool_name": "weather", "arguments": {{"city": "Budapest"}}, "reasoning": "get weather forecast"}}
+- Create file: {{"action": "call_tool", "tool_name": "create_file", "arguments": {{"filename": "summary.txt", "content": "..."}}, "reasoning": "save summary"}}
+- Final answer: {{"action": "final_answer", "reasoning": "all tasks completed"}}
+
+IMPORTANT: The "action" field must ALWAYS be either "call_tool" or "final_answer" - NEVER use a tool name as the action!
 """
         
         messages = [
@@ -336,6 +353,16 @@ User preferences:
 {chr(10).join(user_info)}
 
 """
+        
+        # Add recent conversation history for context
+        if memory.chat_history:
+            recent_history = memory.chat_history[-10:]  # Last 10 messages
+            history_text = "\n".join([
+                f"{msg.role}: {msg.content[:150]}"  # Truncate long messages
+                for msg in recent_history
+            ])
+            prompt += f"\nRecent conversation history:\n{history_text}\n\n"
+        
         if workflow.flow:
             prompt += f"\nCurrent workflow: {workflow.flow} (step {workflow.step}/{workflow.total_steps})\n"
         
@@ -374,8 +401,11 @@ User preferences:
             "iteration_count": 0
         }
         
-        # Run workflow
-        final_state = await self.workflow.ainvoke(initial_state)
+        # Run workflow with increased recursion limit for multi-step workflows
+        final_state = await self.workflow.ainvoke(
+            initial_state,
+            {"recursion_limit": 50}
+        )
         
         # Extract final answer
         final_answer = ""

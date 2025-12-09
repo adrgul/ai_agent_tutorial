@@ -236,16 +236,20 @@ class ChatService:
         
         # Try to extract name from common patterns
         name_patterns = [
-            r"(?:my name is|call me|i am|i'm)\s+([A-Z][a-z]+)",  # English
-            r"(?:a nevem|hívnak|vagyok|én vagyok)\s+([A-Z][a-záéíóöőúüű]+)",  # Hungarian
-            r"([A-Z][a-z]+)\s+vagyok",  # "[Name] vagyok"
+            r"(?:my name is|call me|i am|i'm)\s+([A-Z][a-záéíóöőúüű][a-záéíóöőúüű]+)",  # English
+            r"(?:a nevem|hívnak|vagyok|én vagyok)\s+([A-Z][a-záéíóöőúüű][a-záéíóöőúüű]+)",  # Hungarian
+            r"([A-Z][a-záéíóöőúüű]+)\s+vagyok",  # "[Name] vagyok"
+            r"(?:szia|hello|hi|helló)\s+([A-Z][a-záéíóöőúüű][a-záéíóöőúüű]+)",  # "Szia [Name]" or "Hi [Name]"
+            r"^([A-Z][a-záéíóöőúüű][a-záéíóöőúüű]+)\s+(?:here|itt|speaking)",  # "[Name] here/itt/speaking"
         ]
         
         for pattern in name_patterns:
             match = re.search(pattern, message, re.IGNORECASE)
             if match:
                 potential_name = match.group(1).strip('.,!?')
-                if len(potential_name) > 1:
+                # Filter out common words that aren't names (but allow actual names to update)
+                excluded_words = ['szia', 'hello', 'helló', 'hi', 'hey', 'hola', 'budapest', 'hogyan', 'segíthetek']
+                if len(potential_name) > 1 and potential_name.lower() not in excluded_words:
                     preferences_updates["name"] = potential_name
                     logger.info(f"Detected name: {potential_name}")
                     break

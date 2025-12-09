@@ -10,9 +10,6 @@ Egy AI agent, ami meeting jegyzetből automatikusan:
 Előnyök:
   - Egyszerű indulás: sima TXT / transcript feldolgozása
   - LangGraph példák: document input → LLM summarization → JSON output
-  - Üzleti relevancia: rengeteg startup / cég épít ilyet
-  - Látványos: a hallgató végén bemutathatja, ahogy a jegyzetből AI-s „meeting summary” lesz
-  - Könnyen ellenőrizhető: egységes sample input → expected output összevetés
   - Bővíthető: memóriával, feladatrögzítéssel, Slack-integrációval
 
 Végeredmény:
@@ -28,7 +25,6 @@ AI Support Triage & Answer Drafting Agent
 
 Előnyei:
 - Valós üzleti igény: minden szervezetnek van support-csatornája (email, chat, ticket).
-- Egységes, szintetikus adatcsomaggal tanítható és automatizáltan pontozható (nincs API-kulcs mizéria).
 - Tiszta RAG-feladat: FAQ/KB cikkekből idéz (citáció), és készít struktúrált JSON választ.
 - Kettős output → jól mérhető:
 - Kötelező: triage (kategória, prioritás, SLA) → klasszifikációs pontozás
@@ -66,7 +62,6 @@ Mit csinál az agent?
 
 
 AI Internal Knowledge Router & Workflow Automation Agent**
-
 („Vállalati belső tudásirányító + workflow-automata agent”)
 
 Röviden:
