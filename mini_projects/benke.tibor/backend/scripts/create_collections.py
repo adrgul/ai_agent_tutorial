@@ -7,15 +7,15 @@ Usage:
 """
 import os
 import sys
+import logging
 from pathlib import Path
+
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams
 
 # Add backend to path
 backend_path = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_path))
-
-from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

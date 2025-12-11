@@ -18,13 +18,11 @@ Usage:
 import os
 import sys
 import argparse
+import hashlib
+import time
+import logging
 from pathlib import Path
 from typing import List, Dict
-import logging
-
-# Add backend to path
-backend_path = Path(__file__).parent.parent
-sys.path.insert(0, str(backend_path))
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct, Distance, VectorParams
@@ -37,8 +35,10 @@ from langchain_community.document_loaders import (
 )
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
-import hashlib
-import time
+
+# Add backend to path
+backend_path = Path(__file__).parent.parent
+sys.path.insert(0, str(backend_path))
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

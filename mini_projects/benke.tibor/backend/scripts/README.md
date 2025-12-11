@@ -59,15 +59,15 @@ backend/data/files/
 
 ### Dependencies
 
-Required packages (add to requirements.txt if missing):
-- `qdrant-client`
-- `langchain`
-- `langchain-openai`
-- `langchain-community`
-- `pypdf`
-- `python-docx`
-- `unstructured`
-- `markdown`
+Required packages are in `requirements-rag.txt`:
+```bash
+pip install -r requirements-rag.txt
+```
+
+Packages include:
+- `qdrant-client` - Vector database client
+- `langchain` + `langchain-openai` + `langchain-community` - Document processing
+- `pypdf`, `python-docx`, `unstructured`, `markdown` - Document loaders
 
 ## Environment Variables
 

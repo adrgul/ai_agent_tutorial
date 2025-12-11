@@ -48,6 +48,17 @@ $env:OPENAI_API_KEY = "sk-your-key-here"
 docker-compose up --build
 ```
 
+**Fontos:** Az alkalmazás jelenleg **mock RAG-et** használ beégetett dokumentumokkal. 
+
+**Éles RAG aktiválásához Qdrant-tal:**
+1. Telepítsd a RAG függőségeket: `pip install -r backend/requirements-rag.txt`
+2. Adj hozzá dokumentumokat: `backend/data/files/{domain}/`
+3. Futtasd az ingestion script-et (lásd: `backend/scripts/README.md`)
+
+```bash
+docker-compose up --build
+```
+
 ### 4. Hozzáférés
 
 - **Frontend**: http://localhost:3000
