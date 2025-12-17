@@ -41,6 +41,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from infrastructure.google_drive_client import get_drive_client
 from infrastructure.document_parser import DocumentParser
 from infrastructure.openai_clients import OpenAIClientFactory
+from infrastructure.redis_client import redis_cache
 
 # Setup logging
 logging.basicConfig(
@@ -319,6 +320,13 @@ class DomainDocsSync:
         logger.info(f"{'='*60}")
         logger.info(f"✅ Success: {success_count} files")
         logger.info(f"❌ Errors: {error_count} files")
+        
+        # Invalidate Redis cache for this domain
+        if redis_cache.is_available():
+            redis_cache.invalidate_query_cache(domain=self.domain)
+            logger.info(f"🗑️  Redis cache invalidated for domain: {self.domain}")
+        else:
+            logger.warning("⚠️  Redis not available, cache not invalidated")
         
         # Get collection info
         collection_info = self.qdrant_client.get_collection(COLLECTION_NAME)

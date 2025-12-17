@@ -2304,8 +2304,281 @@
           }
         ]
       }
+    },
+    {
+      "role": "user",
+      "content": "Mi a brand guideline?",
+      "timestamp": "2025-12-17T11:37:24.787239",
+      "metadata": null
+    },
+    {
+      "role": "assistant",
+      "content": "A brand guideline (m\u00e1rka ir\u00e1nyelv) egy olyan dokumentum, amely meghat\u00e1rozza egy m\u00e1rka vizu\u00e1lis \u00e9s verb\u00e1lis megjelen\u00e9s\u00e9t, biztos\u00edtva a m\u00e1rka konzisztenci\u00e1j\u00e1t \u00e9s azonos\u00edthat\u00f3s\u00e1g\u00e1t. A brand guideline \u00e1ltal\u00e1ban a k\u00f6vetkez\u0151 elemeket tartalmazza:\n\n### 1. **M\u00e1rkaidentit\u00e1s**\n   - **Log\u00f3 haszn\u00e1lat**: A log\u00f3 megfelel\u0151 \u00e9s helyt\u00e1ll\u00f3 haszn\u00e1lata, bele\u00e9rtve a sz\u00ednek, m\u00e9retek \u00e9s elhelyez\u00e9s szab\u00e1lyait.\n   - **Sz\u00ednek**: A m\u00e1rka hivatalos sz\u00ednei, bele\u00e9rtve a Pantone, CMYK \u00e9s RGB k\u00f3dokat.\n   - **Tipogr\u00e1fia**: A haszn\u00e1land\u00f3 bet\u0171t\u00edpusok \u00e9s azok vari\u00e1ci\u00f3i (pl. c\u00edmsorok, sz\u00f6vegek).\n\n### 2. **Vizu\u00e1lis elemek**\n   - **K\u00e9pek**: A m\u00e1rk\u00e1hoz kapcsol\u00f3d\u00f3 k\u00e9pek st\u00edlusa, min\u0151s\u00e9ge \u00e9s felhaszn\u00e1l\u00e1si m\u00f3dja.\n   - **Ikonogr\u00e1fia**: A m\u00e1rk\u00e1ra jellemz\u0151 ikonok \u00e9s szimb\u00f3lumok, valamint azok haszn\u00e1lat\u00e1nak \u00fatmutat\u00f3i.\n\n### 3. **Hangv\u00e9tel \u00e9s st\u00edlus**\n   - **Nyelvezet**: A m\u00e1rka kommunik\u00e1ci\u00f3s st\u00edlusa, bele\u00e9rtve a sz\u00f3haszn\u00e1latot \u00e9s a ton\u00e1lis ir\u00e1nyelveket.\n   - **\u00dczenetek**: A m\u00e1rka f\u0151 \u00fczenetei \u00e9s \u00e9rt\u00e9kei, amelyeket a kommunik\u00e1ci\u00f3 sor\u00e1n k\u00f6zvet\u00edteni kell.\n\n### 4. **Haszn\u00e1lati ir\u00e1nyelvek**\n   - **Marketing anyagok**: Hogyan kell a brand guideline-okat alkalmazni a hirdet\u00e9sekben, bros\u00far\u00e1kban \u00e9s egy\u00e9b marketing anyagokban.\n   - **Digit\u00e1lis jelenl\u00e9t**: Az online platformokon val\u00f3 megjelen\u00e9s szab\u00e1lyai, bele\u00e9rtve a k\u00f6z\u00f6ss\u00e9gi m\u00e9dia ir\u00e1nyelveit.\n\n### 5. **Jogi el\u0151\u00edr\u00e1sok**\n   - **Szellemi tulajdon**: A m\u00e1rka v\u00e9delme \u00e9s a jogi k\u00f6vetelm\u00e9nyek, bele\u00e9rtve a szerz\u0151i jogokat \u00e9s v\u00e9djegyeket.\n\nA brand guideline c\u00e9lja, hogy mindenki, aki a m\u00e1rk\u00e1val dolgozik \u2013 legyen az bels\u0151 munkat\u00e1rs vagy k\u00fcls\u0151 partner \u2013 ugyanazt a vizu\u00e1lis \u00e9s kommunik\u00e1ci\u00f3s ir\u00e1nyvonalat k\u00f6vesse, ez\u00e1ltal er\u0151s\u00edtve a m\u00e1rka hiteless\u00e9g\u00e9t \u00e9s piaci poz\u00edci\u00f3j\u00e1t.",
+      "timestamp": "2025-12-17T11:37:42.842948",
+      "metadata": {
+        "domain": "marketing",
+        "citations": []
+      }
+    },
+    {
+      "role": "user",
+      "content": "Mi a brand guideline?",
+      "timestamp": "2025-12-17T11:38:04.440797",
+      "metadata": null
+    },
+    {
+      "role": "assistant",
+      "content": "A brand guideline (m\u00e1rkair\u00e1nyelv) egy olyan dokumentum, amely meghat\u00e1rozza egy m\u00e1rka vizu\u00e1lis \u00e9s verb\u00e1lis megjelen\u00edt\u00e9s\u00e9t, valamint annak kommunik\u00e1ci\u00f3s st\u00edlus\u00e1t. A brand guideline c\u00e9lja, hogy biztos\u00edtsa a m\u00e1rka konzisztens \u00e9s egys\u00e9ges \u00e1br\u00e1zol\u00e1s\u00e1t minden platformon \u00e9s kommunik\u00e1ci\u00f3s csatorn\u00e1n. \n\nA k\u00f6vetkez\u0151 elemeket tartalmazza \u00e1ltal\u00e1ban:\n\n- **M\u00e1rka identit\u00e1s**: A m\u00e1rka alapelvei, k\u00fcldet\u00e9se \u00e9s v\u00edzi\u00f3ja, amely bemutatja, hogy mit k\u00e9pvisel a m\u00e1rka.\n\n- **Log\u00f3 haszn\u00e1lata**: R\u00e9szletes \u00fatmutat\u00e1s a log\u00f3 helyes haszn\u00e1lat\u00e1r\u00f3l, bele\u00e9rtve a m\u00e9ret\u00e9t, elhelyez\u00e9s\u00e9t, \u00e9s a h\u00e1tt\u00e9rsz\u00edneket, amelyek mellett a log\u00f3 j\u00f3l mutat.\n\n- **Sz\u00ednek**: A m\u00e1rk\u00e1hoz tartoz\u00f3 hivatalos sz\u00ednpaletta, amely meghat\u00e1rozza a haszn\u00e1land\u00f3 sz\u00edneket \u00e9s azok hexadecim\u00e1lis k\u00f3djait.\n\n- **Tipogr\u00e1fia**: A m\u00e1rka \u00e1ltal haszn\u00e1lt bet\u0171t\u00edpusok, valamint azok st\u00edlusai \u00e9s m\u00e9retei.\n\n- **K\u00e9pi vil\u00e1g**: \u00datmutat\u00e1s a k\u00e9pek, illusztr\u00e1ci\u00f3k \u00e9s egy\u00e9b vizu\u00e1lis elemek haszn\u00e1lat\u00e1r\u00f3l, bele\u00e9rtve a k\u00e9pek st\u00edlus\u00e1t \u00e9s t\u00e9m\u00e1it.\n\n- **Hangv\u00e9tel \u00e9s st\u00edlus**: A m\u00e1rka kommunik\u00e1ci\u00f3s st\u00edlusa, amely meghat\u00e1rozza, hogyan kell a m\u00e1rk\u00e1val kommunik\u00e1lni, bele\u00e9rtve a nyelvezetet \u00e9s a t\u00f3nust.\n\n- **Alkalmaz\u00e1si p\u00e9ld\u00e1k**: Konkr\u00e9t p\u00e9ld\u00e1k arr\u00f3l, hogyan kell a fenti elemeket alkalmazni k\u00fcl\u00f6nb\u00f6z\u0151 anyagokon, mint p\u00e9ld\u00e1ul \u00fczleti k\u00e1rty\u00e1k, weboldalak, hirdet\u00e9sek, stb.\n\nA brand guideline folyamatosan friss\u00edthet\u0151, hogy t\u00fckr\u00f6zze a m\u00e1rka fejl\u0151d\u00e9s\u00e9t \u00e9s a piaci trendeket, de alapvet\u0151 c\u00e9lja mindig a m\u00e1rka egys\u00e9ges arculat\u00e1nak meg\u0151rz\u00e9se.",
+      "timestamp": "2025-12-17T11:38:18.135296",
+      "metadata": {
+        "domain": "marketing",
+        "citations": []
+      }
+    },
+    {
+      "role": "user",
+      "content": "Mi a c\u00e9g\u00fcnk brand guideline-ja?",
+      "timestamp": "2025-12-17T11:47:00.733478",
+      "metadata": null
+    },
+    {
+      "role": "assistant",
+      "content": "A c\u00e9g\u00fcnk brand guideline-ja a k\u00f6vetkez\u0151 f\u0151bb elemeket tartalmazza:\n\n### 1. **Log\u00f3 haszn\u00e1lat**\n   - A log\u00f3 mindig legyen tiszta h\u00e1tt\u00e9ren.\n   - Ne m\u00f3dos\u00edtsa a log\u00f3 sz\u00edneit vagy ar\u00e1nyait.\n   - Ellen\u0151rizze, hogy a log\u00f3 ne legyen kisebb 1 inch (2,54 cm) sz\u00e9les.\n\n### 2. **Sz\u00ednek**\n   - F\u0151 sz\u00ednek:\n     - K\u00e9k: #0033CC\n     - Z\u00f6ld: #66CC33\n   - M\u00e1sodlagos sz\u00ednek:\n     - Sz\u00fcrke: #999999\n     - Feh\u00e9r: #FFFFFF\n\n### 3. **Bet\u0171t\u00edpusok**\n   - F\u0151 bet\u0171t\u00edpus: Arial\n   - Alternat\u00edv bet\u0171t\u00edpus: Helvetica\n   - Haszn\u00e1ljon legal\u00e1bb 12 pontos bet\u0171m\u00e9retet a f\u0151 sz\u00f6veghez.\n\n### 4. **Hangnem \u00e9s st\u00edlus**\n   - Bar\u00e1ts\u00e1gos, de professzion\u00e1lis hangnem.\n   - Ker\u00fclje a szleng kifejez\u00e9seket.\n   - Haszn\u00e1ljon akt\u00edv ig\u00e9ket \u00e9s pozit\u00edv nyelvezetet.\n\n### 5. **K\u00e9p- \u00e9s grafikai ir\u00e1nyelvek**\n   - Haszn\u00e1ljon magas felbont\u00e1s\u00fa k\u00e9peket.\n   - Ker\u00fclje a t\u00falzottan zs\u00fafolt grafik\u00e1kat.\n   - A k\u00e9peknek \u00f6sszhangban kell lenni\u00fck a brand \u00fczenet\u00e9vel.\n\n### 6. **Online jelenl\u00e9t**\n   - Az \u00f6sszes digit\u00e1lis tartalomnak k\u00f6vetnie kell a fenti ir\u00e1nyelveket.\n   - A k\u00f6z\u00f6ss\u00e9gi m\u00e9dia platformokon is tartsa be a brand arculati elemeket.\n\n### 7. **Haszn\u00e1lati enged\u00e9lyek**\n   - A brand elemeket csak a j\u00f3v\u00e1hagyott anyagokban szabad haszn\u00e1lni.\n   - B\u00e1rmilyen m\u00f3dos\u00edt\u00e1shoz el\u0151zetes j\u00f3v\u00e1hagy\u00e1s sz\u00fcks\u00e9ges.\n\nK\u00e9rj\u00fck, hogy minden munkat\u00e1rs tartsa be ezeket az ir\u00e1nyelveket, hogy biztos\u00edtsuk a c\u00e9g\u00fcnk egys\u00e9ges arculat\u00e1t. Ha tov\u00e1bbi k\u00e9rd\u00e9se van, keresse fel a marketing oszt\u00e1lyt.",
+      "timestamp": "2025-12-17T11:47:13.712775",
+      "metadata": {
+        "domain": "marketing",
+        "citations": []
+      }
+    },
+    {
+      "role": "user",
+      "content": "Mi a c\u00e9g\u00fcnk brand guideline-ja?",
+      "timestamp": "2025-12-17T11:47:25.305977",
+      "metadata": null
+    },
+    {
+      "role": "assistant",
+      "content": "A c\u00e9g\u00fcnk brand guideline-j\u00e1nak f\u0151bb elemei a k\u00f6vetkez\u0151k:\n\n### 1. Log\u00f3 Haszn\u00e1lat\n- **F\u0151 log\u00f3**: A log\u00f3nkat mindig az el\u0151\u00edrt sz\u00ednekben \u00e9s ar\u00e1nyokban kell haszn\u00e1lni.\n- **Szab\u00e1lyok**: Ne torz\u00edtsuk, ne v\u00e1ltoztassuk meg a sz\u00edneit, \u00e9s ne haszn\u00e1ljuk zavar\u00f3 h\u00e1tt\u00e9r el\u0151tt.\n\n### 2. Sz\u00ednek\n- **F\u0151 sz\u00ednpaletta**:\n  - **Alap sz\u00edn**: #007bff (k\u00e9k)\n  - **Kieg\u00e9sz\u00edt\u0151 sz\u00ednek**: #6c757d (sz\u00fcrke), #28a745 (z\u00f6ld)\n- **Haszn\u00e1lat**: A sz\u00ednek haszn\u00e1lata k\u00f6vetkezetes legyen a marketing anyagokban.\n\n### 3. Bet\u0171t\u00edpusok\n- **F\u0151 bet\u0171t\u00edpus**: Helvetica Neue\n- **Alternat\u00edv bet\u0171t\u00edpus**: Arial\n- **Haszn\u00e1lati ir\u00e1nyelvek**: A c\u00edmekhez \u00e9s a sz\u00f6vegekhez a f\u0151 bet\u0171t\u00edpust kell haszn\u00e1lni, az alternat\u00edv bet\u0171t\u00edpust csak akkor, ha az els\u0151 nem el\u00e9rhet\u0151.\n\n### 4. K\u00e9p Haszn\u00e1lat\n- **St\u00edlus**: A k\u00e9peknek professzion\u00e1lisnak kell lenni\u00fck, t\u00fckr\u00f6zve a c\u00e9g \u00e9rt\u00e9keit.\n- **K\u00e9pkeretek**: K\u00e9pekhez mindig haszn\u00e1ljunk keretet, amely \u00f6sszhangban van a brand sz\u00ednpalett\u00e1j\u00e1val.\n\n### 5. Hangnem \u00e9s St\u00edlus\n- **Kommunik\u00e1ci\u00f3**: Haszn\u00e1ljunk bar\u00e1ts\u00e1gos, de professzion\u00e1lis hangnemet.\n- **\u00dczenetek**: Minden \u00fczenetnek tiszt\u00e1nak \u00e9s l\u00e9nyegre t\u00f6r\u0151nek kell lennie.\n\n### 6. Haszn\u00e1lati P\u00e9ld\u00e1k\n- **Marketing Anyagok**: Minta hirdet\u00e9sek \u00e9s bros\u00far\u00e1k, amelyek bemutatj\u00e1k a helyes log\u00f3- \u00e9s sz\u00ednhaszn\u00e1latot.\n- **Weboldal**: A weboldalnak \u00f6sszhangban kell lennie a brand guideline-nal, bele\u00e9rtve a sz\u00ednpalett\u00e1t \u00e9s a bet\u0171t\u00edpusokat is.\n\n### 7. Friss\u00edt\u00e9sek\n- **\u00c9ves Fel\u00fclvizsg\u00e1lat**: A brand guideline-t \u00e9vente fel\u00fcl kell vizsg\u00e1lni, hogy t\u00fckr\u00f6zze a piaci v\u00e1ltoz\u00e1sokat \u00e9s a c\u00e9g fejl\u0151d\u00e9s\u00e9t.\n\nK\u00e9rlek, vedd figyelembe, hogy a brand guideline c\u00e9lja a c\u00e9g arculat\u00e1nak egys\u00e9ges\u00edt\u00e9se, ez\u00e9rt fontos, hogy minden munkat\u00e1rsunk betartsa ezeket az ir\u00e1nyelveket.",
+      "timestamp": "2025-12-17T11:47:36.260636",
+      "metadata": {
+        "domain": "marketing",
+        "citations": []
+      }
+    },
+    {
+      "role": "user",
+      "content": "Mi a c\u00e9g\u00fcnk brand guideline-ja?",
+      "timestamp": "2025-12-17T11:48:17.221367",
+      "metadata": null
+    },
+    {
+      "role": "assistant",
+      "content": "A c\u00e9g\u00fcnk brand guideline-ja a k\u00f6vetkez\u0151 f\u0151bb elemeket tartalmazza:\n\n### 1. **Log\u00f3haszn\u00e1lat**\n   - **Alapvet\u0151 log\u00f3**: A log\u00f3nkat mindig az eredeti sz\u00edneiben \u00e9s ar\u00e1ny\u00e1ban kell haszn\u00e1lni.\n   - **V\u00e9d\u0151z\u00f3na**: A log\u00f3nak mindig legyen v\u00e9d\u0151z\u00f3n\u00e1ja, amely legal\u00e1bb a log\u00f3 magass\u00e1g\u00e1nak fel\u00e9vel egyenl\u0151 ter\u00fcletet jelent k\u00f6r\u00fcl\u00f6tte.\n   - **Tiltott felhaszn\u00e1l\u00e1s**:\n     - Ne m\u00f3dos\u00edtsd a log\u00f3 sz\u00edneit.\n     - Ne torz\u00edtsd el a log\u00f3 ar\u00e1nyait.\n     - Ne haszn\u00e1ld a log\u00f3t h\u00e1tt\u00e9rsz\u00ednk\u00e9nt.\n\n### 2. **Sz\u00ednek**\n   - **F\u0151 sz\u00ednek**: Az alapsz\u00ednek, amelyeket a m\u00e1rka kommunik\u00e1ci\u00f3j\u00e1ban kell haszn\u00e1lni.\n     - P\u00e9ld\u00e1ul: K\u00e9k (#0033CC), Z\u00f6ld (#009933).\n   - **Kieg\u00e9sz\u00edt\u0151 sz\u00ednek**: Olyan sz\u00ednek, amelyeket a f\u0151 sz\u00ednek mellett b\u00e1tran alkalmazhatunk.\n     - P\u00e9ld\u00e1ul: Sz\u00fcrke (#CCCCCC), Feh\u00e9r (#FFFFFF).\n\n### 3. **Bet\u0171t\u00edpusok**\n   - **F\u0151 bet\u0171t\u00edpus**: A c\u00e9g hivatalos bet\u0171t\u00edpusa, amit minden kommunik\u00e1ci\u00f3s anyagban haszn\u00e1lni kell.\n     - P\u00e9ld\u00e1ul: Arial, Helvetica.\n   - **M\u00e1sodlagos bet\u0171t\u00edpus**: Alternat\u00edv bet\u0171t\u00edpus a kieg\u00e9sz\u00edt\u0151 anyagokhoz.\n     - P\u00e9ld\u00e1ul: Times New Roman.\n\n### 4. **K\u00e9p- \u00e9s grafikai ir\u00e1nyelvek**\n   - **K\u00e9pst\u00edlus**: A k\u00e9pek legyenek \u00e9lesek \u00e9s professzion\u00e1lisak. Ker\u00fcld az alacsony min\u0151s\u00e9g\u0171 vagy pixeles k\u00e9peket.\n   - **Grafikai elemek**: Haszn\u00e1lj egys\u00e9ges grafikai elemeket, mint p\u00e9ld\u00e1ul ikonok, amelyek \u00f6sszhangban vannak a m\u00e1rka st\u00edlus\u00e1val.\n\n### 5. **Hangv\u00e9tel \u00e9s kommunik\u00e1ci\u00f3**\n   - **Hivatalos hangv\u00e9tel**: A m\u00e1rk\u00e1nk kommunik\u00e1ci\u00f3ja legyen professzion\u00e1lis \u00e9s bar\u00e1ts\u00e1gos.\n   - **C\u00e9lk\u00f6z\u00f6ns\u00e9g**: Tartsd szem el\u0151tt a c\u00e9lk\u00f6z\u00f6ns\u00e9get, \u00e9s alkalmazkodj a kommunik\u00e1ci\u00f3 st\u00edlus\u00e1hoz.\n\n### 6. **Haszn\u00e1lati p\u00e9ld\u00e1k**\n   - **Weboldal**: A brand guideline szab\u00e1lyait a weboldal diz\u00e1jnj\u00e1n\u00e1l is be kell tartani.\n   - **K\u00f6z\u00f6ss\u00e9gi m\u00e9dia**: Minden poszt \u00e9s hirdet\u00e9s eset\u00e9n figyelj a log\u00f3, sz\u00ednek \u00e9s bet\u0171t\u00edpusok helyes haszn\u00e1lat\u00e1ra.\n\nEzek az ir\u00e1nyelvek seg\u00edtenek a m\u00e1rk\u00e1nk egys\u00e9ges megjelen\u00e9s\u00e9ben \u00e9s kommunik\u00e1ci\u00f3j\u00e1ban. Ha tov\u00e1bbi r\u00e9szletekre van sz\u00fcks\u00e9ged, k\u00e9rlek jelezd!",
+      "timestamp": "2025-12-17T11:48:29.613381",
+      "metadata": {
+        "domain": "marketing",
+        "citations": []
+      }
+    },
+    {
+      "role": "user",
+      "content": "Mi a c\u00e9g\u00fcnk brand guideline-ja?",
+      "timestamp": "2025-12-17T11:48:47.841039",
+      "metadata": null
+    },
+    {
+      "role": "assistant",
+      "content": "A c\u00e9g\u00fcnk brand guideline-ja a k\u00f6vetkez\u0151 f\u0151bb elemeket tartalmazza:\n\n### 1. **Log\u00f3haszn\u00e1lat**\n- A log\u00f3kat mindig a hivatalos form\u00e1tumban kell haszn\u00e1lni.\n- A h\u00e1tt\u00e9rsz\u00edn, amelyen a log\u00f3 megjelenik, nem lehet zavar\u00f3 \u2013 v\u00e1lasszunk kontrasztos sz\u00edneket.\n- A log\u00f3 m\u00e9ret\u00e9nek minimaliz\u00e1l\u00e1sa: a legkisebb enged\u00e9lyezett m\u00e9ret 2 cm sz\u00e9les.\n\n### 2. **Sz\u00ednpaletta**\n- **F\u0151 sz\u00ednek:**\n  - K\u00e9k: HEX #005EB8\n  - Z\u00f6ld: HEX #00A651\n- **Kieg\u00e9sz\u00edt\u0151 sz\u00ednek:**\n  - Sz\u00fcrke: HEX #7D7F80\n  - Feh\u00e9r: HEX #FFFFFF\n- A sz\u00ednek kombin\u00e1l\u00e1s\u00e1n\u00e1l figyelj\u00fcnk a kontrasztra \u00e9s a k\u00f6nny\u0171 olvashat\u00f3s\u00e1gra.\n\n### 3. **Tipogr\u00e1fia**\n- **F\u0151 bet\u0171t\u00edpus:** Arial\n  - Haszn\u00e1lat: c\u00edmsorok, kiemel\u00e9sek\n- **M\u00e1sodlagos bet\u0171t\u00edpus:** Times New Roman\n  - Haszn\u00e1lat: hosszabb sz\u00f6vegek, hivatalos dokumentumok\n- Bet\u0171m\u00e9retek: \n  - C\u00edmsorok: minimum 16 pt\n  - Sz\u00f6veg: minimum 12 pt\n\n### 4. **K\u00e9p- \u00e9s grafikai haszn\u00e1lat**\n- A k\u00e9peknek professzion\u00e1lisnak kell lenni\u00fck, ker\u00fclni kell a pixeles vagy alacsony min\u0151s\u00e9g\u0171 k\u00e9peket.\n- A grafikai elemek (ikonok, illusztr\u00e1ci\u00f3k) legyenek egys\u00e9ges st\u00edlus\u00faak \u00e9s sz\u00ednpalett\u00e1hoz illeszked\u0151k.\n\n### 5. **Kommunik\u00e1ci\u00f3s st\u00edlus**\n- A v\u00e1llalati kommunik\u00e1ci\u00f3nak bar\u00e1ts\u00e1gosnak \u00e9s professzion\u00e1lisnak kell lennie.\n- Haszn\u00e1ljunk pozit\u00edv, t\u00e1mogat\u00f3 nyelvezetet, ker\u00fclj\u00fck a t\u00falzottan technikai kifejez\u00e9seket, ha nem sz\u00fcks\u00e9gesek.\n- A sz\u00f6vegek legyenek vil\u00e1gosak \u00e9s t\u00f6m\u00f6rek.\n\n### 6. **Szab\u00e1lyok \u00e9s ir\u00e1nyelvek**\n- Minden munkat\u00e1rsnak tiszt\u00e1ban kell lennie a brand guideline-okkal \u00e9s azokat be kell tartania.\n- B\u00e1rmilyen, a branddel kapcsolatos anyag l\u00e9trehoz\u00e1sa el\u0151tt konzult\u00e1lni kell a marketing oszt\u00e1llyal.\n\nEzek az ir\u00e1nyelvek seg\u00edtenek meg\u0151rizni a m\u00e1rk\u00e1nk egys\u00e9gess\u00e9g\u00e9t \u00e9s arculat\u00e1t. K\u00e9rlek, tartsd szem el\u0151tt ezeket a szab\u00e1lyokat minden kommunik\u00e1ci\u00f3s \u00e9s marketing tev\u00e9kenys\u00e9g sor\u00e1n!",
+      "timestamp": "2025-12-17T11:49:00.815417",
+      "metadata": {
+        "domain": "marketing",
+        "citations": []
+      }
+    },
+    {
+      "role": "user",
+      "content": "Mi a c\u00e9g\u00fcnk brand guideline-ja?",
+      "timestamp": "2025-12-17T11:50:19.470265",
+      "metadata": null
+    },
+    {
+      "role": "assistant",
+      "content": "A c\u00e9g\u00fcnk brand guideline-ja a k\u00f6vetkez\u0151 f\u0151bb elemeket tartalmazza:\n\n### 1. Log\u00f3haszn\u00e1lat\n- **Alapvet\u0151 log\u00f3**: A c\u00e9g hivatalos log\u00f3ja, amelyet mindig a megadott sz\u00edn- \u00e9s m\u00e9retar\u00e1nnyal kell haszn\u00e1lni.\n- **V\u00e1ltozatok**: A log\u00f3nak l\u00e9teznek k\u00fcl\u00f6nb\u00f6z\u0151 verzi\u00f3i (pl. fekete-feh\u00e9r, sz\u00ednes), amelyeket a h\u00e1tt\u00e9r sz\u00edn\u00e9t\u0151l f\u00fcgg\u0151en kell v\u00e1lasztani.\n- **T\u00e1vols\u00e1g**: A log\u00f3 k\u00f6r\u00fcli minim\u00e1lis t\u00e1vols\u00e1got be kell tartani, hogy a log\u00f3 kiemelkedjen.\n\n### 2. Sz\u00ednpaletta\n- **F\u0151 sz\u00ednek**: A c\u00e9g m\u00e1rk\u00e1j\u00e1nak f\u0151 sz\u00ednei, amelyek a kommunik\u00e1ci\u00f3s anyagokban \u00e9s a vizu\u00e1lis megjelen\u00e9sben domin\u00e1lnak.\n- **Kieg\u00e9sz\u00edt\u0151 sz\u00ednek**: Ezek a sz\u00ednek haszn\u00e1lhat\u00f3k a f\u0151 sz\u00ednek kieg\u00e9sz\u00edt\u00e9sek\u00e9nt, de nem helyettes\u00edthetik azokat.\n\n### 3. Bet\u0171t\u00edpusok\n- **F\u0151 bet\u0171t\u00edpus**: A hivatalos kommunik\u00e1ci\u00f3khoz haszn\u00e1lt f\u0151 bet\u0171t\u00edpus, amelynek m\u00e9rete \u00e9s st\u00edlusa is meg van hat\u00e1rozva.\n- **M\u00e1sodlagos bet\u0171t\u00edpus**: Alternat\u00edv bet\u0171t\u00edpus, amelyet kieg\u00e9sz\u00edt\u0151 anyagokhoz lehet haszn\u00e1lni.\n\n### 4. K\u00e9p- \u00e9s grafikai elemek\n- **Illusztr\u00e1ci\u00f3k**: A c\u00e9g arculat\u00e1hoz illeszked\u0151 illusztr\u00e1ci\u00f3s st\u00edlus, amely t\u00fckr\u00f6zi a m\u00e1rka \u00e9rt\u00e9keit.\n- **Fot\u00f3haszn\u00e1lat**: A fot\u00f3k kiv\u00e1laszt\u00e1sa sor\u00e1n figyelembe kell venni a m\u00e1rka \u00fczenet\u00e9t \u00e9s a c\u00e9lcsoportot.\n\n### 5. Hangv\u00e9tel \u00e9s kommunik\u00e1ci\u00f3\n- **\u00cdr\u00e1sbeli hangv\u00e9tel**: A brand kommunik\u00e1ci\u00f3ja form\u00e1lis, de bar\u00e1ts\u00e1gos st\u00edlusban kell hogy megjelenjen.\n- **\u00dczenetek**: A c\u00e9g \u00fczeneteinek egys\u00e9gesnek kell lenni\u00fck, t\u00fckr\u00f6zve a c\u00e9g \u00e9rt\u00e9keit \u00e9s k\u00fcldet\u00e9s\u00e9t.\n\n### 6. Haszn\u00e1lati p\u00e9ld\u00e1k\n- **Marketing anyagok**: P\u00e9ld\u00e1k arra, hogyan kell alkalmazni a brand guideline-okat k\u00fcl\u00f6nb\u00f6z\u0151 marketing anyagokban (pl. sz\u00f3r\u00f3lapok, hirdet\u00e9sek).\n- **Digit\u00e1lis m\u00e9dia**: A digit\u00e1lis platformokon val\u00f3 megjelen\u00e9s szab\u00e1lyai (pl. k\u00f6z\u00f6ss\u00e9gi m\u00e9dia, weboldal).\n\nK\u00e9rj\u00fck, hogy a fenti ir\u00e1nyelveket mindig tarts\u00e1k be a brand kommunik\u00e1ci\u00f3s anyagok k\u00e9sz\u00edt\u00e9se sor\u00e1n! Ha tov\u00e1bbi k\u00e9rd\u00e9seik lenn\u00e9nek, ne habozzanak kapcsolatba l\u00e9pni a marketing oszt\u00e1llyal.",
+      "timestamp": "2025-12-17T11:50:33.462247",
+      "metadata": {
+        "domain": "marketing",
+        "citations": []
+      }
+    },
+    {
+      "role": "user",
+      "content": "Mi a c\u00e9g\u00fcnk brand guideline-ja?",
+      "timestamp": "2025-12-17T11:50:35.714713",
+      "metadata": null
+    },
+    {
+      "role": "assistant",
+      "content": "A c\u00e9g\u00fcnk brand guideline-ja a k\u00f6vetkez\u0151 f\u0151bb ir\u00e1nyelveket tartalmazza:\n\n### Logo haszn\u00e1lata\n- **Sz\u00ednv\u00e1ltozatok**: A log\u00f3nak mindig az el\u0151\u00edrt sz\u00ednekben kell megjelennie. Haszn\u00e1lj csak azokat a sz\u00ednk\u00f3dokat, amelyek a guideline-ban szerepelnek.\n- **Helyes ar\u00e1nyok**: A logo ar\u00e1nyait sosem szabad megv\u00e1ltoztatni. K\u00e9rj\u00fck, tartsd be a megadott m\u00e9reteket.\n\n### Sz\u00ednek\n- **F\u0151 sz\u00ednek**: \n  - #FF5733 (P\u00e9ld\u00e1ul: piros)\n  - #C70039 (P\u00e9ld\u00e1ul: s\u00f6t\u00e9t piros)\n- **Kieg\u00e9sz\u00edt\u0151 sz\u00ednek**:\n  - #900C3F (P\u00e9ld\u00e1ul: lil\u00e1s)\n  - #581845 (P\u00e9ld\u00e1ul: s\u00f6t\u00e9t lila)\n\n### Bet\u0171t\u00edpusok\n- **F\u0151 bet\u0171t\u00edpus**: Arial Bold\n- **M\u00e1sodlagos bet\u0171t\u00edpus**: Arial Regular\n\n### K\u00e9p- \u00e9s grafikai ir\u00e1nyelvek\n- **K\u00e9pek**: Minden haszn\u00e1lt k\u00e9pnek j\u00f3 min\u0151s\u00e9g\u0171nek kell lennie, \u00e9s a c\u00e9g arculat\u00e1t kell t\u00fckr\u00f6znie.\n- **Grafikai elemek**: Haszn\u00e1lj egyszer\u0171, letisztult grafikai elemeket, amelyek illeszkednek a c\u00e9g arculat\u00e1hoz.\n\n### Kommunik\u00e1ci\u00f3s ir\u00e1nyelvek\n- **Hangnem**: A kommunik\u00e1ci\u00f3nknak bar\u00e1ts\u00e1gosnak \u00e9s professzion\u00e1lisnak kell lennie.\n- **C\u00e9lk\u00f6z\u00f6ns\u00e9g**: Mindig tartsd szem el\u0151tt a c\u00e9lk\u00f6z\u00f6ns\u00e9get, \u00e9s igaz\u00edtsd a tartalmat az \u0151 ig\u00e9nyeikhez.\n\n### Haszn\u00e1lati szab\u00e1lyok\n- **Jogosults\u00e1g**: Csak azok a munkav\u00e1llal\u00f3k haszn\u00e1lhatj\u00e1k a brand anyagokat, akik erre a c\u00e9g \u00e1ltal felhatalmaz\u00e1st kaptak.\n- **Ellen\u0151rz\u00e9s**: Minden brand anyag haszn\u00e1lata el\u0151tt k\u00e9rj\u00fck, hogy ellen\u0151rizd a guideline-t, \u00e9s sz\u00fcks\u00e9g eset\u00e9n k\u00e9rj j\u00f3v\u00e1hagy\u00e1st.\n\nEzek az ir\u00e1nyelvek seg\u00edtenek biztos\u00edtani, hogy a c\u00e9g arculata konzisztens \u00e9s felismerhet\u0151 maradjon. Tov\u00e1bbi r\u00e9szletek\u00e9rt k\u00e9rlek, n\u00e9zd meg a c\u00e9g bels\u0151 dokumentumait vagy vedd fel a kapcsolatot a marketing csapattal.",
+      "timestamp": "2025-12-17T11:50:53.328666",
+      "metadata": {
+        "domain": "marketing",
+        "citations": []
+      }
+    },
+    {
+      "role": "user",
+      "content": "Mi a c\u00e9g\u00fcnk brand guideline-ja?",
+      "timestamp": "2025-12-17T11:51:48.543977",
+      "metadata": null
+    },
+    {
+      "role": "assistant",
+      "content": "A c\u00e9g\u00fcnk brand guideline-ja a k\u00f6vetkez\u0151 f\u0151bb elemeket tartalmazza:\n\n### 1. M\u00e1rka \u00e1ttekint\u00e9s\n- **M\u00e1rkan\u00e9v:** AURORA DIGITAL\n- **Ipar\u00e1g:** Digit\u00e1lis term\u00e9kek, AI-alap\u00fa szolg\u00e1ltat\u00e1sok\n- **M\u00e1rka\u00edg\u00e9ret:** \u00c1tl\u00e1that\u00f3s\u00e1g, megb\u00edzhat\u00f3s\u00e1g \u00e9s intelligens egyszer\u0171s\u00e9g.\n- **M\u00e1rkaszem\u00e9lyis\u00e9g:** Professzion\u00e1lis, magabiztos, prec\u00edz \u00e9s j\u00f6v\u0151orient\u00e1lt.\n\n### 2. M\u00e1rka\u00e9rt\u00e9kek\n- **Megb\u00edzhat\u00f3s\u00e1g:** Kisz\u00e1m\u00edthat\u00f3, stabil megold\u00e1sokat sz\u00e1ll\u00edtunk.\n- **\u00c1tl\u00e1that\u00f3s\u00e1g:** Cs\u00f6kkentj\u00fck a komplexit\u00e1st, nem n\u00f6velj\u00fck.\n- **Integrit\u00e1s:** Ny\u00edlt m\u0171k\u00f6d\u00e9s \u00e9s \u0151szinte kommunik\u00e1ci\u00f3.\n- **Innov\u00e1ci\u00f3:** Modern megold\u00e1sok bev\u00e1lt alapokra \u00e9p\u00edtve.\n\n### 3. Hangnem \u00e9s kommunik\u00e1ci\u00f3\n- **St\u00edlus:** Form\u00e1lis, professzion\u00e1lis.\n- **Megfogalmaz\u00e1s:** T\u00f6m\u00f6r, t\u00e9nyszer\u0171, elker\u00fclj\u00fck a marketing t\u00falz\u00e1sokat.\n- **Hangs\u00faly:** Magabiztos, de nem arrog\u00e1ns hangv\u00e9tel, egy\u00e9rtelm\u0171 \u00e1ll\u00edt\u00e1sok el\u0151nyben r\u00e9szes\u00edt\u00e9se.\n\n### 4. Log\u00f3haszn\u00e1lat\n- A log\u00f3 ar\u00e1nyai nem torz\u00edthat\u00f3k.\n- **Minim\u00e1lis v\u00e9d\u0151t\u00e1vols\u00e1g:** a log\u00f3 'A' bet\u0171j\u00e9nek magass\u00e1ga.\n- **Tilos:** a log\u00f3 \u00e1tsz\u00ednez\u00e9se, forgat\u00e1sa vagy effektez\u00e9se.\n- **Prefer\u00e1lt elhelyez\u00e9s:** bal fels\u0151 sarok vagy k\u00f6z\u00e9pre igaz\u00edtva.\n\n### 5. Sz\u00ednpaletta\n- **Els\u0151dleges sz\u00edn:** (Nem szerepel az \u00f6sszes\u00edtett dokumentumokban, de fel kell t\u00fcntetni a pontos sz\u00ednt.)\n- **Kieg\u00e9sz\u00edt\u0151 sz\u00edn:** Vil\u00e1gossz\u00fcrke (#E6E8EB)\n- **Hiba/figyelmeztet\u00e9s:** Jelz\u0151piros (#C0392B)\n- A sz\u00ednek k\u00f6vetkezetes, visszafogott haszn\u00e1lata k\u00f6telez\u0151.\n\n### 6. Tipogr\u00e1fia\n- **Els\u0151dleges bet\u0171t\u00edpus:** Inter (Regular, Medium, SemiBold)\n- **Alternat\u00edv bet\u0171t\u00edpusok:** Arial, Helvetica, sans-serif\n\nEzek az ir\u00e1nyelvek seg\u00edtenek abban, hogy a brand\u00fcnket egys\u00e9gesen \u00e9s professzion\u00e1lisan k\u00e9pviselj\u00fck. K\u00e9rj\u00fck, tarts\u00e1k be ezeket az ir\u00e1nyelveket minden marketing \u00e9s kommunik\u00e1ci\u00f3s anyagban!",
+      "timestamp": "2025-12-17T11:51:58.759133",
+      "metadata": {
+        "domain": "marketing",
+        "citations": [
+          {
+            "doc_id": "1ACEdQxgUuAsDHKPBqKyp2kt88DjfXjhv#chunk0",
+            "title": "Aurora_Digital_Brand_Guidelines_eng.docx",
+            "score": 0.5294029,
+            "url": null,
+            "content": "Brand Guidelines \u2013 AURORA DIGITAL\n\n1. Brand Overview\n\nBrand name: AURORA DIGITAL\n\nIndustry: Digital products, AI-enabled services\n\nBrand promise: Clarity, reliability, and intelligent simplicity.\n\nBrand personality: Professional, confident, precise, and forward-looking.\n\n2. Brand Values\n\nReliability \u2013 We deliver predictable, stable outcomes.\n\nClarity \u2013 We remove complexity, not add to it.\n\nIntegrity \u2013 Transparent processes and honest communication.\n\nInnovation \u2013 Modern solutions built on proven foundations.\n\n3. Tone of Voice\n\nProfessional and concise.\n\nDirect, factual language.\n\nAvoid hype and buzzwords.\n\nConfident but not arrogant.\n\nPrefer clear statements over marketing fluff.\n\n4. Logo Usage\n\nThe logo must always appear in its original proportions."
+          },
+          {
+            "doc_id": "1utetoO-ApR4lmOpY1HS63va_gqmjDfsA#chunk0",
+            "title": "Aurora_Digital_Arculati_Kezikonyv_HU.docx",
+            "score": 0.51805794,
+            "url": null,
+            "content": "Arculati k\u00e9zik\u00f6nyv \u2013 AURORA DIGITAL\n\n1. M\u00e1rka \u00e1ttekint\u00e9s\n\nM\u00e1rkan\u00e9v: AURORA DIGITAL\n\nIpar\u00e1g: Digit\u00e1lis term\u00e9kek, AI-alap\u00fa szolg\u00e1ltat\u00e1sok\n\nM\u00e1rka\u00edg\u00e9ret: \u00c1tl\u00e1that\u00f3s\u00e1g, megb\u00edzhat\u00f3s\u00e1g \u00e9s intelligens egyszer\u0171s\u00e9g.\n\nM\u00e1rkaszem\u00e9lyis\u00e9g: Professzion\u00e1lis, magabiztos, prec\u00edz \u00e9s j\u00f6v\u0151orient\u00e1lt.\n\n2. M\u00e1rka\u00e9rt\u00e9kek\n\nMegb\u00edzhat\u00f3s\u00e1g \u2013 Kisz\u00e1m\u00edthat\u00f3, stabil megold\u00e1sokat sz\u00e1ll\u00edtunk.\n\n\u00c1tl\u00e1that\u00f3s\u00e1g \u2013 Cs\u00f6kkentj\u00fck a komplexit\u00e1st, nem n\u00f6velj\u00fck.\n\nIntegrit\u00e1s \u2013 Ny\u00edlt m\u0171k\u00f6d\u00e9s \u00e9s \u0151szinte kommunik\u00e1ci\u00f3.\n\nInnov\u00e1ci\u00f3 \u2013 Modern megold\u00e1sok bev\u00e1lt alapokra \u00e9p\u00edtve.\n\n3. Hangnem \u00e9s kommunik\u00e1ci\u00f3\n\nForm\u00e1lis, professzion\u00e1lis st\u00edlus.\n\nT\u00f6m\u00f6r, t\u00e9nyszer\u0171 megfogalmaz\u00e1s.\n\nMarketing t\u00falz\u00e1sok ker\u00fcl\u00e9se.\n\nMagabiztos, de nem arrog\u00e1ns hangv\u00e9tel.\n\nEgy\u00e9rtelm\u0171 \u00e1ll\u00edt\u00e1sok el\u0151nyben r\u00e9szes\u00edt\u00e9se.\n\n4. Log\u00f3haszn\u00e1lat\n\nA log\u00f3 ar\u00e1nyai nem torz\u00edthat\u00f3k."
+          },
+          {
+            "doc_id": "150jnsbIl3HreheZyiCDU3fUt9cdL_EFS#chunk0",
+            "title": "Aurora_Digital_Arculati_Kezikonyv_HU.pdf",
+            "score": 0.514898,
+            "url": null,
+            "content": "--- Page 1 ---\nArculati k\u00e9zik\u00f6nyv \u2013 AURORA DIGITAL  \n1. M\u00e1rka \u00e1ttekint\u00e9s  \nM\u00e1rkan\u00e9v: AURORA DIGITAL  \nIpar\u00e1g: Digit\u00e1lis term\u00e9kek, AI -alap\u00fa szolg\u00e1ltat\u00e1sok  \nM\u00e1rka\u00edg\u00e9ret: \u00c1tl\u00e1that\u00f3s\u00e1g, megb\u00edzhat\u00f3s\u00e1g \u00e9s intelligens egyszer\u0171s\u00e9g.  \nM\u00e1rkaszem\u00e9lyis\u00e9g: Professzion\u00e1lis, magabiztos, prec\u00edz \u00e9s j\u00f6v\u0151orient\u00e1lt.  \n2. M\u00e1rka\u00e9rt\u00e9kek  \nMegb\u00edzhat\u00f3s\u00e1g \u2013 Kisz\u00e1m\u00edthat\u00f3, stabil megold\u00e1sokat sz\u00e1ll\u00edtunk.  \n\u00c1tl\u00e1that\u00f3s\u00e1g \u2013 Cs\u00f6kkentj\u00fck a komplexit\u00e1st, nem n\u00f6velj\u00fck.  \nIntegrit\u00e1s \u2013 Ny\u00edlt m\u0171k\u00f6d\u00e9s \u00e9s \u0151szinte kommunik\u00e1ci\u00f3.  \nInnov\u00e1ci\u00f3 \u2013 Modern megold\u00e1sok bev\u00e1lt alapokra \u00e9p\u00edtve.  \n3. Hangnem \u00e9s kommunik\u00e1ci\u00f3  \nForm\u00e1lis, professzion\u00e1lis st\u00edlus.  \nT\u00f6m\u00f6r, t\u00e9nyszer\u0171 megfogalmaz\u00e1s.  \nMarketing t\u00falz\u00e1sok ker\u00fcl\u00e9se.  \nMagabiztos, de nem arrog\u00e1ns hangv\u00e9tel.  \nEgy\u00e9rtelm\u0171 \u00e1ll\u00edt\u00e1sok el\u0151nyben r\u00e9szes\u00edt\u00e9se.  \n4. Log\u00f3haszn\u00e1lat"
+          },
+          {
+            "doc_id": "1utetoO-ApR4lmOpY1HS63va_gqmjDfsA#chunk1",
+            "title": "Aurora_Digital_Arculati_Kezikonyv_HU.docx",
+            "score": 0.4865072,
+            "url": null,
+            "content": "Egy\u00e9rtelm\u0171 \u00e1ll\u00edt\u00e1sok el\u0151nyben r\u00e9szes\u00edt\u00e9se.\n\n4. Log\u00f3haszn\u00e1lat\n\nA log\u00f3 ar\u00e1nyai nem torz\u00edthat\u00f3k.\n\nMinim\u00e1lis v\u00e9d\u0151t\u00e1vols\u00e1g: a log\u00f3 'A' bet\u0171j\u00e9nek magass\u00e1ga.\n\nTilos a log\u00f3 \u00e1tsz\u00ednez\u00e9se, forgat\u00e1sa vagy effektez\u00e9se.\n\nPrefer\u00e1lt elhelyez\u00e9s: bal fels\u0151 sarok vagy k\u00f6z\u00e9pre igaz\u00edtva.\n\n5. Sz\u00ednpaletta\n\nEls\u0151dleges sz\u00edn: \u00c9jk\u00e9k (#0B1C2D)\n\nM\u00e1sodlagos sz\u00edn: Aurora t\u00fcrkiz (#1FA6A3)\n\nKieg\u00e9sz\u00edt\u0151 sz\u00edn: Vil\u00e1gossz\u00fcrke (#E6E8EB)\n\nHiba / figyelmeztet\u00e9s: Jelz\u0151piros (#C0392B)\n\nA sz\u00ednek k\u00f6vetkezetes, visszafogott haszn\u00e1lata k\u00f6telez\u0151.\n\n6. Tipogr\u00e1fia\n\nEls\u0151dleges bet\u0171t\u00edpus: Inter (Regular, Medium, SemiBold)\n\nAlternat\u00edv bet\u0171t\u00edpusok: Arial, Helvetica, sans-serif\n\nC\u00edmsorok: SemiBold\n\nT\u00f6rzssz\u00f6veg: Regular\n\nDekorat\u00edv bet\u0171t\u00edpusok haszn\u00e1lata nem megengedett.\n\n7. Elrendez\u00e9s \u00e9s t\u00e9rk\u00f6z\n\nMegfelel\u0151 mennyis\u00e9g\u0171 \u00fcres t\u00e9r alkalmaz\u00e1sa."
+          },
+          {
+            "doc_id": "150jnsbIl3HreheZyiCDU3fUt9cdL_EFS#chunk2",
+            "title": "Aurora_Digital_Arculati_Kezikonyv_HU.pdf",
+            "score": 0.46862692,
+            "url": null,
+            "content": "--- Page 2 ---\nKieg\u00e9sz\u00edt\u0151 sz\u00edn: Vil\u00e1gossz\u00fcrke (#E6E8EB)  \nHiba / figyelmeztet\u00e9s: Jelz\u0151piros (#C0392B)  \nA sz\u00ednek k\u00f6vetkezetes, visszafogott haszn\u00e1lata k\u00f6telez\u0151.  \n6. Tipogr\u00e1fia  \nEls\u0151dleges bet\u0171t\u00edpus: Inter (Regular, Medium, SemiBold)  \nAlternat\u00edv bet\u0171t\u00edpusok: Arial, Helvetica, sans -serif  \nC\u00edmsorok: SemiBold  \nT\u00f6rzssz\u00f6veg: Regular  \nDekorat\u00edv bet\u0171t\u00edpusok haszn\u00e1lata nem megengedett.  \n7. Elrendez\u00e9s \u00e9s t\u00e9rk\u00f6z  \nMegfelel\u0151 mennyis\u00e9g\u0171 \u00fcres t\u00e9r alkalmaz\u00e1sa.  \nR\u00e1csszerkezethez igaz\u00edtott elrendez\u00e9s.  \nF\u00fcgg\u0151leges ritmus el\u0151nyben r\u00e9szes\u00edt\u00e9se.  \nMaxim\u00e1lis sorhossz: 70 \u201380 karakter.  \n8. Ikonhaszn\u00e1lat \u00e9s vizu\u00e1lis st\u00edlus  \nEgyszer\u0171, vonalas ikonok haszn\u00e1lata.  \nEgys\u00e9ges vonalvastags\u00e1g.  \nT\u00falzottan r\u00e9szletes grafik\u00e1k ker\u00fcl\u00e9se.  \nA vizu\u00e1lis elemek t\u00e1mogass\u00e1k a tartalmat."
+          }
+        ]
+      }
+    },
+    {
+      "role": "user",
+      "content": "Mi a c\u00e9g\u00fcnk brand guideline-ja?",
+      "timestamp": "2025-12-17T11:52:01.009384",
+      "metadata": null
+    },
+    {
+      "role": "assistant",
+      "content": "A c\u00e9g\u00fcnk brand guideline-ja a k\u00f6vetkez\u0151 f\u0151bb ter\u00fcleteket foglalja mag\u00e1ban:\n\n### 1. Brand \u00c1ttekint\u00e9s\n- **M\u00e1rkanev:** AURORA DIGITAL\n- **Ipar\u00e1g:** Digit\u00e1lis term\u00e9kek, AI-alap\u00fa szolg\u00e1ltat\u00e1sok\n- **M\u00e1rka\u00edg\u00e9ret:** \u00c1tl\u00e1that\u00f3s\u00e1g, megb\u00edzhat\u00f3s\u00e1g \u00e9s intelligens egyszer\u0171s\u00e9g.\n- **M\u00e1rkaszem\u00e9lyis\u00e9g:** Professzion\u00e1lis, magabiztos, prec\u00edz \u00e9s j\u00f6v\u0151orient\u00e1lt.\n\n### 2. M\u00e1rka\u00e9rt\u00e9kek\n- **Megb\u00edzhat\u00f3s\u00e1g:** Kisz\u00e1m\u00edthat\u00f3, stabil megold\u00e1sokat sz\u00e1ll\u00edtunk.\n- **\u00c1tl\u00e1that\u00f3s\u00e1g:** Cs\u00f6kkentj\u00fck a komplexit\u00e1st, nem n\u00f6velj\u00fck.\n- **Integrit\u00e1s:** Ny\u00edlt m\u0171k\u00f6d\u00e9s \u00e9s \u0151szinte kommunik\u00e1ci\u00f3.\n- **Innov\u00e1ci\u00f3:** Modern megold\u00e1sok bev\u00e1lt alapokra \u00e9p\u00edtve.\n\n### 3. Hangnem \u00e9s Kommunik\u00e1ci\u00f3\n- **St\u00edlus:** Form\u00e1lis, professzion\u00e1lis.\n- **Megfogalmaz\u00e1s:** T\u00f6m\u00f6r \u00e9s t\u00e9nyszer\u0171.\n- **Ker\u00fclj\u00fck:** Marketing t\u00falz\u00e1sokat, hype-ot \u00e9s buzzword-\u00f6ket.\n- **Megk\u00f6zel\u00edt\u00e9s:** Magabiztos, de nem arrog\u00e1ns; egy\u00e9rtelm\u0171 \u00e1ll\u00edt\u00e1sok el\u0151nyben r\u00e9szes\u00edt\u00e9se.\n\n### 4. Log\u00f3haszn\u00e1lat\n- A log\u00f3 ar\u00e1nyai **nem torz\u00edthat\u00f3k**.\n- **Minim\u00e1lis v\u00e9d\u0151t\u00e1vols\u00e1g:** a log\u00f3 'A' bet\u0171j\u00e9nek magass\u00e1ga.\n- **Tilos:** a log\u00f3 \u00e1tsz\u00ednez\u00e9se, forgat\u00e1sa vagy effektez\u00e9se.\n- **Prefer\u00e1lt elhelyez\u00e9s:** bal fels\u0151 sarok vagy k\u00f6z\u00e9pre igaz\u00edtva.\n\n### 5. Sz\u00ednpaletta\n- **Els\u0151dleges sz\u00edn:** (A konkr\u00e9t sz\u00edn nem szerepel a dokumentumokban, de a sz\u00ednpaletta k\u00f6vetkezetes \u00e9s visszafogott haszn\u00e1lata k\u00f6telez\u0151.)\n- **Kieg\u00e9sz\u00edt\u0151 sz\u00edn:** Vil\u00e1gossz\u00fcrke (#E6E8EB)\n- **Hiba / figyelmeztet\u00e9s:** Jelz\u0151piros (#C0392B)\n\n### 6. Tipogr\u00e1fia\n- **Els\u0151dleges bet\u0171t\u00edpus:** Inter (Regular, Medium, SemiBold)\n- **Alternat\u00edv bet\u0171t\u00edpusok:** Arial, Helvetica, sans-serif\n\nEzek az ir\u00e1nyelvek seg\u00edtik a m\u00e1rk\u00e1nkkal kapcsolatos kommunik\u00e1ci\u00f3t \u00e9s vizu\u00e1lis megjelen\u00e9st, biztos\u00edtva a k\u00f6vetkezetess\u00e9get \u00e9s a professzion\u00e1lis megjelen\u00e9st a digit\u00e1lis term\u00e9kek \u00e9s AI-alap\u00fa szolg\u00e1ltat\u00e1sok ter\u00fclet\u00e9n.",
+      "timestamp": "2025-12-17T11:52:18.028048",
+      "metadata": {
+        "domain": "marketing",
+        "citations": [
+          {
+            "doc_id": "1ACEdQxgUuAsDHKPBqKyp2kt88DjfXjhv#chunk0",
+            "title": "Aurora_Digital_Brand_Guidelines_eng.docx",
+            "score": 1.0,
+            "url": null,
+            "content": "Brand Guidelines \u2013 AURORA DIGITAL\n\n1. Brand Overview\n\nBrand name: AURORA DIGITAL\n\nIndustry: Digital products, AI-enabled services\n\nBrand promise: Clarity, reliability, and intelligent simplicity.\n\nBrand personality: Professional, confident, precise, and forward-looking.\n\n2. Brand Values\n\nReliability \u2013 We deliver predictable, stable outcomes.\n\nClarity \u2013 We remove complexity, not add to it.\n\nIntegrity \u2013 Transparent processes and honest communication.\n\nInnovation \u2013 Modern solutions built on proven foundations.\n\n3. Tone of Voice\n\nProfessional and concise.\n\nDirect, factual language.\n\nAvoid hype and buzzwords.\n\nConfident but not arrogant.\n\nPrefer clear statements over marketing fluff.\n\n4. Logo Usage\n\nThe logo must always appear in its original proportions."
+          },
+          {
+            "doc_id": "1utetoO-ApR4lmOpY1HS63va_gqmjDfsA#chunk0",
+            "title": "Aurora_Digital_Arculati_Kezikonyv_HU.docx",
+            "score": 1.0,
+            "url": null,
+            "content": "Arculati k\u00e9zik\u00f6nyv \u2013 AURORA DIGITAL\n\n1. M\u00e1rka \u00e1ttekint\u00e9s\n\nM\u00e1rkan\u00e9v: AURORA DIGITAL\n\nIpar\u00e1g: Digit\u00e1lis term\u00e9kek, AI-alap\u00fa szolg\u00e1ltat\u00e1sok\n\nM\u00e1rka\u00edg\u00e9ret: \u00c1tl\u00e1that\u00f3s\u00e1g, megb\u00edzhat\u00f3s\u00e1g \u00e9s intelligens egyszer\u0171s\u00e9g.\n\nM\u00e1rkaszem\u00e9lyis\u00e9g: Professzion\u00e1lis, magabiztos, prec\u00edz \u00e9s j\u00f6v\u0151orient\u00e1lt.\n\n2. M\u00e1rka\u00e9rt\u00e9kek\n\nMegb\u00edzhat\u00f3s\u00e1g \u2013 Kisz\u00e1m\u00edthat\u00f3, stabil megold\u00e1sokat sz\u00e1ll\u00edtunk.\n\n\u00c1tl\u00e1that\u00f3s\u00e1g \u2013 Cs\u00f6kkentj\u00fck a komplexit\u00e1st, nem n\u00f6velj\u00fck.\n\nIntegrit\u00e1s \u2013 Ny\u00edlt m\u0171k\u00f6d\u00e9s \u00e9s \u0151szinte kommunik\u00e1ci\u00f3.\n\nInnov\u00e1ci\u00f3 \u2013 Modern megold\u00e1sok bev\u00e1lt alapokra \u00e9p\u00edtve.\n\n3. Hangnem \u00e9s kommunik\u00e1ci\u00f3\n\nForm\u00e1lis, professzion\u00e1lis st\u00edlus.\n\nT\u00f6m\u00f6r, t\u00e9nyszer\u0171 megfogalmaz\u00e1s.\n\nMarketing t\u00falz\u00e1sok ker\u00fcl\u00e9se.\n\nMagabiztos, de nem arrog\u00e1ns hangv\u00e9tel.\n\nEgy\u00e9rtelm\u0171 \u00e1ll\u00edt\u00e1sok el\u0151nyben r\u00e9szes\u00edt\u00e9se.\n\n4. Log\u00f3haszn\u00e1lat\n\nA log\u00f3 ar\u00e1nyai nem torz\u00edthat\u00f3k."
+          },
+          {
+            "doc_id": "150jnsbIl3HreheZyiCDU3fUt9cdL_EFS#chunk0",
+            "title": "Aurora_Digital_Arculati_Kezikonyv_HU.pdf",
+            "score": 1.0,
+            "url": null,
+            "content": "--- Page 1 ---\nArculati k\u00e9zik\u00f6nyv \u2013 AURORA DIGITAL  \n1. M\u00e1rka \u00e1ttekint\u00e9s  \nM\u00e1rkan\u00e9v: AURORA DIGITAL  \nIpar\u00e1g: Digit\u00e1lis term\u00e9kek, AI -alap\u00fa szolg\u00e1ltat\u00e1sok  \nM\u00e1rka\u00edg\u00e9ret: \u00c1tl\u00e1that\u00f3s\u00e1g, megb\u00edzhat\u00f3s\u00e1g \u00e9s intelligens egyszer\u0171s\u00e9g.  \nM\u00e1rkaszem\u00e9lyis\u00e9g: Professzion\u00e1lis, magabiztos, prec\u00edz \u00e9s j\u00f6v\u0151orient\u00e1lt.  \n2. M\u00e1rka\u00e9rt\u00e9kek  \nMegb\u00edzhat\u00f3s\u00e1g \u2013 Kisz\u00e1m\u00edthat\u00f3, stabil megold\u00e1sokat sz\u00e1ll\u00edtunk.  \n\u00c1tl\u00e1that\u00f3s\u00e1g \u2013 Cs\u00f6kkentj\u00fck a komplexit\u00e1st, nem n\u00f6velj\u00fck.  \nIntegrit\u00e1s \u2013 Ny\u00edlt m\u0171k\u00f6d\u00e9s \u00e9s \u0151szinte kommunik\u00e1ci\u00f3.  \nInnov\u00e1ci\u00f3 \u2013 Modern megold\u00e1sok bev\u00e1lt alapokra \u00e9p\u00edtve.  \n3. Hangnem \u00e9s kommunik\u00e1ci\u00f3  \nForm\u00e1lis, professzion\u00e1lis st\u00edlus.  \nT\u00f6m\u00f6r, t\u00e9nyszer\u0171 megfogalmaz\u00e1s.  \nMarketing t\u00falz\u00e1sok ker\u00fcl\u00e9se.  \nMagabiztos, de nem arrog\u00e1ns hangv\u00e9tel.  \nEgy\u00e9rtelm\u0171 \u00e1ll\u00edt\u00e1sok el\u0151nyben r\u00e9szes\u00edt\u00e9se.  \n4. Log\u00f3haszn\u00e1lat"
+          },
+          {
+            "doc_id": "1utetoO-ApR4lmOpY1HS63va_gqmjDfsA#chunk1",
+            "title": "Aurora_Digital_Arculati_Kezikonyv_HU.docx",
+            "score": 1.0,
+            "url": null,
+            "content": "Egy\u00e9rtelm\u0171 \u00e1ll\u00edt\u00e1sok el\u0151nyben r\u00e9szes\u00edt\u00e9se.\n\n4. Log\u00f3haszn\u00e1lat\n\nA log\u00f3 ar\u00e1nyai nem torz\u00edthat\u00f3k.\n\nMinim\u00e1lis v\u00e9d\u0151t\u00e1vols\u00e1g: a log\u00f3 'A' bet\u0171j\u00e9nek magass\u00e1ga.\n\nTilos a log\u00f3 \u00e1tsz\u00ednez\u00e9se, forgat\u00e1sa vagy effektez\u00e9se.\n\nPrefer\u00e1lt elhelyez\u00e9s: bal fels\u0151 sarok vagy k\u00f6z\u00e9pre igaz\u00edtva.\n\n5. Sz\u00ednpaletta\n\nEls\u0151dleges sz\u00edn: \u00c9jk\u00e9k (#0B1C2D)\n\nM\u00e1sodlagos sz\u00edn: Aurora t\u00fcrkiz (#1FA6A3)\n\nKieg\u00e9sz\u00edt\u0151 sz\u00edn: Vil\u00e1gossz\u00fcrke (#E6E8EB)\n\nHiba / figyelmeztet\u00e9s: Jelz\u0151piros (#C0392B)\n\nA sz\u00ednek k\u00f6vetkezetes, visszafogott haszn\u00e1lata k\u00f6telez\u0151.\n\n6. Tipogr\u00e1fia\n\nEls\u0151dleges bet\u0171t\u00edpus: Inter (Regular, Medium, SemiBold)\n\nAlternat\u00edv bet\u0171t\u00edpusok: Arial, Helvetica, sans-serif\n\nC\u00edmsorok: SemiBold\n\nT\u00f6rzssz\u00f6veg: Regular\n\nDekorat\u00edv bet\u0171t\u00edpusok haszn\u00e1lata nem megengedett.\n\n7. Elrendez\u00e9s \u00e9s t\u00e9rk\u00f6z\n\nMegfelel\u0151 mennyis\u00e9g\u0171 \u00fcres t\u00e9r alkalmaz\u00e1sa."
+          },
+          {
+            "doc_id": "150jnsbIl3HreheZyiCDU3fUt9cdL_EFS#chunk2",
+            "title": "Aurora_Digital_Arculati_Kezikonyv_HU.pdf",
+            "score": 1.0,
+            "url": null,
+            "content": "--- Page 2 ---\nKieg\u00e9sz\u00edt\u0151 sz\u00edn: Vil\u00e1gossz\u00fcrke (#E6E8EB)  \nHiba / figyelmeztet\u00e9s: Jelz\u0151piros (#C0392B)  \nA sz\u00ednek k\u00f6vetkezetes, visszafogott haszn\u00e1lata k\u00f6telez\u0151.  \n6. Tipogr\u00e1fia  \nEls\u0151dleges bet\u0171t\u00edpus: Inter (Regular, Medium, SemiBold)  \nAlternat\u00edv bet\u0171t\u00edpusok: Arial, Helvetica, sans -serif  \nC\u00edmsorok: SemiBold  \nT\u00f6rzssz\u00f6veg: Regular  \nDekorat\u00edv bet\u0171t\u00edpusok haszn\u00e1lata nem megengedett.  \n7. Elrendez\u00e9s \u00e9s t\u00e9rk\u00f6z  \nMegfelel\u0151 mennyis\u00e9g\u0171 \u00fcres t\u00e9r alkalmaz\u00e1sa.  \nR\u00e1csszerkezethez igaz\u00edtott elrendez\u00e9s.  \nF\u00fcgg\u0151leges ritmus el\u0151nyben r\u00e9szes\u00edt\u00e9se.  \nMaxim\u00e1lis sorhossz: 70 \u201380 karakter.  \n8. Ikonhaszn\u00e1lat \u00e9s vizu\u00e1lis st\u00edlus  \nEgyszer\u0171, vonalas ikonok haszn\u00e1lata.  \nEgys\u00e9ges vonalvastags\u00e1g.  \nT\u00falzottan r\u00e9szletes grafik\u00e1k ker\u00fcl\u00e9se.  \nA vizu\u00e1lis elemek t\u00e1mogass\u00e1k a tartalmat."
+          }
+        ]
+      }
+    },
+    {
+      "role": "user",
+      "content": "Mi a c\u00e9g\u00fcnk brand guideline-ja?",
+      "timestamp": "2025-12-17T11:59:19.558334",
+      "metadata": null
+    },
+    {
+      "role": "assistant",
+      "content": "A c\u00e9g\u00fcnk brand guideline-ja a k\u00f6vetkez\u0151 f\u0151bb elemeket tartalmazza:\n\n### 1. M\u00e1rka \u00e1ttekint\u00e9s\n- **M\u00e1rkan\u00e9v:** AURORA DIGITAL\n- **Ipar\u00e1g:** Digit\u00e1lis term\u00e9kek, AI-alap\u00fa szolg\u00e1ltat\u00e1sok\n- **M\u00e1rka\u00edg\u00e9ret:** \u00c1tl\u00e1that\u00f3s\u00e1g, megb\u00edzhat\u00f3s\u00e1g \u00e9s intelligens egyszer\u0171s\u00e9g.\n- **M\u00e1rkaszem\u00e9lyis\u00e9g:** Professzion\u00e1lis, magabiztos, prec\u00edz \u00e9s j\u00f6v\u0151orient\u00e1lt.\n\n### 2. M\u00e1rka\u00e9rt\u00e9kek\n- **Megb\u00edzhat\u00f3s\u00e1g:** Kisz\u00e1m\u00edthat\u00f3, stabil megold\u00e1sokat sz\u00e1ll\u00edtunk.\n- **\u00c1tl\u00e1that\u00f3s\u00e1g:** Cs\u00f6kkentj\u00fck a komplexit\u00e1st, nem n\u00f6velj\u00fck.\n- **Integrit\u00e1s:** Ny\u00edlt m\u0171k\u00f6d\u00e9s \u00e9s \u0151szinte kommunik\u00e1ci\u00f3.\n- **Innov\u00e1ci\u00f3:** Modern megold\u00e1sok bev\u00e1lt alapokra \u00e9p\u00edtve.\n\n### 3. Hangnem \u00e9s kommunik\u00e1ci\u00f3\n- **St\u00edlus:** Form\u00e1lis, professzion\u00e1lis.\n- **Megfogalmaz\u00e1s:** T\u00f6m\u00f6r, t\u00e9nyszer\u0171.\n- **Ker\u00fclend\u0151:** Marketing t\u00falz\u00e1sok, hirtelen megfogalmaz\u00e1sok.\n- **Hangs\u00faly:** Magabiztos, de nem arrog\u00e1ns.\n- **El\u0151nyben r\u00e9szes\u00edtend\u0151:** Egy\u00e9rtelm\u0171 \u00e1ll\u00edt\u00e1sok.\n\n### 4. Log\u00f3haszn\u00e1lat\n- **Proporci\u00f3k:** A log\u00f3t mindig az eredeti ar\u00e1ny\u00e1ban kell haszn\u00e1lni.\n- **Minim\u00e1lis v\u00e9d\u0151t\u00e1vols\u00e1g:** A log\u00f3 'A' bet\u0171j\u00e9nek magass\u00e1ga.\n- **Tilos:** A log\u00f3 \u00e1tsz\u00ednez\u00e9se, forgat\u00e1sa vagy effektez\u00e9se.\n- **Prefer\u00e1lt elhelyez\u00e9s:** Bal fels\u0151 sarok vagy k\u00f6z\u00e9pre igaz\u00edtva.\n\n### 5. Sz\u00ednpaletta\n- **Els\u0151dleges sz\u00edn:** (Inform\u00e1ci\u00f3 hi\u00e1nyzik a dokumentumban)\n- **Kieg\u00e9sz\u00edt\u0151 sz\u00edn:** Vil\u00e1gossz\u00fcrke (#E6E8EB)\n- **Hiba / figyelmeztet\u00e9s:** Jelz\u0151piros (#C0392B)\n- **Haszn\u00e1lat:** A sz\u00ednek k\u00f6vetkezetes, visszafogott haszn\u00e1lata k\u00f6telez\u0151.\n\n### 6. Tipogr\u00e1fia\n- **Els\u0151dleges bet\u0171t\u00edpus:** Inter (Regular, Medium, SemiBold)\n- **Alternat\u00edv bet\u0171t\u00edpusok:** Arial, Helvetica, sans-serif\n\nEzek az ir\u00e1nyelvek seg\u00edtenek abban, hogy a m\u00e1rk\u00e1nk egys\u00e9ges \u00e9s professzion\u00e1lis megjelen\u00e9st biztos\u00edtson a kommunik\u00e1ci\u00f3 minden ter\u00fclet\u00e9n.",
+      "timestamp": "2025-12-17T11:59:30.497900",
+      "metadata": {
+        "domain": "marketing",
+        "citations": [
+          {
+            "doc_id": "1ACEdQxgUuAsDHKPBqKyp2kt88DjfXjhv#chunk0",
+            "title": "Aurora_Digital_Brand_Guidelines_eng.docx",
+            "score": 0.5294029,
+            "url": null,
+            "content": "Brand Guidelines \u2013 AURORA DIGITAL\n\n1. Brand Overview\n\nBrand name: AURORA DIGITAL\n\nIndustry: Digital products, AI-enabled services\n\nBrand promise: Clarity, reliability, and intelligent simplicity.\n\nBrand personality: Professional, confident, precise, and forward-looking.\n\n2. Brand Values\n\nReliability \u2013 We deliver predictable, stable outcomes.\n\nClarity \u2013 We remove complexity, not add to it.\n\nIntegrity \u2013 Transparent processes and honest communication.\n\nInnovation \u2013 Modern solutions built on proven foundations.\n\n3. Tone of Voice\n\nProfessional and concise.\n\nDirect, factual language.\n\nAvoid hype and buzzwords.\n\nConfident but not arrogant.\n\nPrefer clear statements over marketing fluff.\n\n4. Logo Usage\n\nThe logo must always appear in its original proportions."
+          },
+          {
+            "doc_id": "1utetoO-ApR4lmOpY1HS63va_gqmjDfsA#chunk0",
+            "title": "Aurora_Digital_Arculati_Kezikonyv_HU.docx",
+            "score": 0.51805794,
+            "url": null,
+            "content": "Arculati k\u00e9zik\u00f6nyv \u2013 AURORA DIGITAL\n\n1. M\u00e1rka \u00e1ttekint\u00e9s\n\nM\u00e1rkan\u00e9v: AURORA DIGITAL\n\nIpar\u00e1g: Digit\u00e1lis term\u00e9kek, AI-alap\u00fa szolg\u00e1ltat\u00e1sok\n\nM\u00e1rka\u00edg\u00e9ret: \u00c1tl\u00e1that\u00f3s\u00e1g, megb\u00edzhat\u00f3s\u00e1g \u00e9s intelligens egyszer\u0171s\u00e9g.\n\nM\u00e1rkaszem\u00e9lyis\u00e9g: Professzion\u00e1lis, magabiztos, prec\u00edz \u00e9s j\u00f6v\u0151orient\u00e1lt.\n\n2. M\u00e1rka\u00e9rt\u00e9kek\n\nMegb\u00edzhat\u00f3s\u00e1g \u2013 Kisz\u00e1m\u00edthat\u00f3, stabil megold\u00e1sokat sz\u00e1ll\u00edtunk.\n\n\u00c1tl\u00e1that\u00f3s\u00e1g \u2013 Cs\u00f6kkentj\u00fck a komplexit\u00e1st, nem n\u00f6velj\u00fck.\n\nIntegrit\u00e1s \u2013 Ny\u00edlt m\u0171k\u00f6d\u00e9s \u00e9s \u0151szinte kommunik\u00e1ci\u00f3.\n\nInnov\u00e1ci\u00f3 \u2013 Modern megold\u00e1sok bev\u00e1lt alapokra \u00e9p\u00edtve.\n\n3. Hangnem \u00e9s kommunik\u00e1ci\u00f3\n\nForm\u00e1lis, professzion\u00e1lis st\u00edlus.\n\nT\u00f6m\u00f6r, t\u00e9nyszer\u0171 megfogalmaz\u00e1s.\n\nMarketing t\u00falz\u00e1sok ker\u00fcl\u00e9se.\n\nMagabiztos, de nem arrog\u00e1ns hangv\u00e9tel.\n\nEgy\u00e9rtelm\u0171 \u00e1ll\u00edt\u00e1sok el\u0151nyben r\u00e9szes\u00edt\u00e9se.\n\n4. Log\u00f3haszn\u00e1lat\n\nA log\u00f3 ar\u00e1nyai nem torz\u00edthat\u00f3k."
+          },
+          {
+            "doc_id": "150jnsbIl3HreheZyiCDU3fUt9cdL_EFS#chunk0",
+            "title": "Aurora_Digital_Arculati_Kezikonyv_HU.pdf",
+            "score": 0.514898,
+            "url": null,
+            "content": "--- Page 1 ---\nArculati k\u00e9zik\u00f6nyv \u2013 AURORA DIGITAL  \n1. M\u00e1rka \u00e1ttekint\u00e9s  \nM\u00e1rkan\u00e9v: AURORA DIGITAL  \nIpar\u00e1g: Digit\u00e1lis term\u00e9kek, AI -alap\u00fa szolg\u00e1ltat\u00e1sok  \nM\u00e1rka\u00edg\u00e9ret: \u00c1tl\u00e1that\u00f3s\u00e1g, megb\u00edzhat\u00f3s\u00e1g \u00e9s intelligens egyszer\u0171s\u00e9g.  \nM\u00e1rkaszem\u00e9lyis\u00e9g: Professzion\u00e1lis, magabiztos, prec\u00edz \u00e9s j\u00f6v\u0151orient\u00e1lt.  \n2. M\u00e1rka\u00e9rt\u00e9kek  \nMegb\u00edzhat\u00f3s\u00e1g \u2013 Kisz\u00e1m\u00edthat\u00f3, stabil megold\u00e1sokat sz\u00e1ll\u00edtunk.  \n\u00c1tl\u00e1that\u00f3s\u00e1g \u2013 Cs\u00f6kkentj\u00fck a komplexit\u00e1st, nem n\u00f6velj\u00fck.  \nIntegrit\u00e1s \u2013 Ny\u00edlt m\u0171k\u00f6d\u00e9s \u00e9s \u0151szinte kommunik\u00e1ci\u00f3.  \nInnov\u00e1ci\u00f3 \u2013 Modern megold\u00e1sok bev\u00e1lt alapokra \u00e9p\u00edtve.  \n3. Hangnem \u00e9s kommunik\u00e1ci\u00f3  \nForm\u00e1lis, professzion\u00e1lis st\u00edlus.  \nT\u00f6m\u00f6r, t\u00e9nyszer\u0171 megfogalmaz\u00e1s.  \nMarketing t\u00falz\u00e1sok ker\u00fcl\u00e9se.  \nMagabiztos, de nem arrog\u00e1ns hangv\u00e9tel.  \nEgy\u00e9rtelm\u0171 \u00e1ll\u00edt\u00e1sok el\u0151nyben r\u00e9szes\u00edt\u00e9se.  \n4. Log\u00f3haszn\u00e1lat"
+          },
+          {
+            "doc_id": "1utetoO-ApR4lmOpY1HS63va_gqmjDfsA#chunk1",
+            "title": "Aurora_Digital_Arculati_Kezikonyv_HU.docx",
+            "score": 0.4865072,
+            "url": null,
+            "content": "Egy\u00e9rtelm\u0171 \u00e1ll\u00edt\u00e1sok el\u0151nyben r\u00e9szes\u00edt\u00e9se.\n\n4. Log\u00f3haszn\u00e1lat\n\nA log\u00f3 ar\u00e1nyai nem torz\u00edthat\u00f3k.\n\nMinim\u00e1lis v\u00e9d\u0151t\u00e1vols\u00e1g: a log\u00f3 'A' bet\u0171j\u00e9nek magass\u00e1ga.\n\nTilos a log\u00f3 \u00e1tsz\u00ednez\u00e9se, forgat\u00e1sa vagy effektez\u00e9se.\n\nPrefer\u00e1lt elhelyez\u00e9s: bal fels\u0151 sarok vagy k\u00f6z\u00e9pre igaz\u00edtva.\n\n5. Sz\u00ednpaletta\n\nEls\u0151dleges sz\u00edn: \u00c9jk\u00e9k (#0B1C2D)\n\nM\u00e1sodlagos sz\u00edn: Aurora t\u00fcrkiz (#1FA6A3)\n\nKieg\u00e9sz\u00edt\u0151 sz\u00edn: Vil\u00e1gossz\u00fcrke (#E6E8EB)\n\nHiba / figyelmeztet\u00e9s: Jelz\u0151piros (#C0392B)\n\nA sz\u00ednek k\u00f6vetkezetes, visszafogott haszn\u00e1lata k\u00f6telez\u0151.\n\n6. Tipogr\u00e1fia\n\nEls\u0151dleges bet\u0171t\u00edpus: Inter (Regular, Medium, SemiBold)\n\nAlternat\u00edv bet\u0171t\u00edpusok: Arial, Helvetica, sans-serif\n\nC\u00edmsorok: SemiBold\n\nT\u00f6rzssz\u00f6veg: Regular\n\nDekorat\u00edv bet\u0171t\u00edpusok haszn\u00e1lata nem megengedett.\n\n7. Elrendez\u00e9s \u00e9s t\u00e9rk\u00f6z\n\nMegfelel\u0151 mennyis\u00e9g\u0171 \u00fcres t\u00e9r alkalmaz\u00e1sa."
+          },
+          {
+            "doc_id": "150jnsbIl3HreheZyiCDU3fUt9cdL_EFS#chunk2",
+            "title": "Aurora_Digital_Arculati_Kezikonyv_HU.pdf",
+            "score": 0.46862692,
+            "url": null,
+            "content": "--- Page 2 ---\nKieg\u00e9sz\u00edt\u0151 sz\u00edn: Vil\u00e1gossz\u00fcrke (#E6E8EB)  \nHiba / figyelmeztet\u00e9s: Jelz\u0151piros (#C0392B)  \nA sz\u00ednek k\u00f6vetkezetes, visszafogott haszn\u00e1lata k\u00f6telez\u0151.  \n6. Tipogr\u00e1fia  \nEls\u0151dleges bet\u0171t\u00edpus: Inter (Regular, Medium, SemiBold)  \nAlternat\u00edv bet\u0171t\u00edpusok: Arial, Helvetica, sans -serif  \nC\u00edmsorok: SemiBold  \nT\u00f6rzssz\u00f6veg: Regular  \nDekorat\u00edv bet\u0171t\u00edpusok haszn\u00e1lata nem megengedett.  \n7. Elrendez\u00e9s \u00e9s t\u00e9rk\u00f6z  \nMegfelel\u0151 mennyis\u00e9g\u0171 \u00fcres t\u00e9r alkalmaz\u00e1sa.  \nR\u00e1csszerkezethez igaz\u00edtott elrendez\u00e9s.  \nF\u00fcgg\u0151leges ritmus el\u0151nyben r\u00e9szes\u00edt\u00e9se.  \nMaxim\u00e1lis sorhossz: 70 \u201380 karakter.  \n8. Ikonhaszn\u00e1lat \u00e9s vizu\u00e1lis st\u00edlus  \nEgyszer\u0171, vonalas ikonok haszn\u00e1lata.  \nEgys\u00e9ges vonalvastags\u00e1g.  \nT\u00falzottan r\u00e9szletes grafik\u00e1k ker\u00fcl\u00e9se.  \nA vizu\u00e1lis elemek t\u00e1mogass\u00e1k a tartalmat."
+          }
+        ]
+      }
     }
   ],
   "created_at": "2025-12-10T10:41:04.697762",
-  "updated_at": "2025-12-17T08:39:23.468398"
+  "updated_at": "2025-12-17T11:59:30.505784"
 }

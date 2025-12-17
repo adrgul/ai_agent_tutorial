@@ -16,12 +16,15 @@ services:
       - OPENAI_MODEL=gpt-4o-mini
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - DJANGO_SETTINGS_MODULE=core.settings
     volumes:
       - ./backend/data:/app/data
       - ./backend/credentials:/app/credentials
     depends_on:
       - qdrant
+      - redis
     networks:
       - knowledge_network
     command: gunicorn core.wsgi:application --bind 0.0.0.0:8000 --reload
@@ -50,8 +53,25 @@ services:
     networks:
       - knowledge_network
 
+  redis:
+    image: redis:7-alpine
+    container_name: knowledgerouter_redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - knowledge_network
+
 volumes:
   qdrant_data:
+  redis_data:
 
 networks:
   knowledge_network:

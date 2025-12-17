@@ -14,6 +14,9 @@ langchain-community>=0.0.25
 # Vector DB (Qdrant - self-hosted)
 qdrant-client==1.7.0
 
+# Redis cache
+redis==5.0.1
+
 # HTTP
 httpx==0.25.2
 requests==2.31.0

@@ -43,6 +43,13 @@ brew install --cask docker
 sudo apt-get install docker.io docker-compose
 ```
 
+**Docker Services:**
+A Docker Compose 4 szolgáltatást indít:
+- **Backend** (Django): http://localhost:8001
+- **Frontend** (Nginx): http://localhost:3000
+- **Qdrant** (Vector DB): http://localhost:6334
+- **Redis** (Cache): localhost:6380
+
 ### 2. Repository Klónozása
 
 ```bash
@@ -71,6 +78,7 @@ docker-compose up --build
 ```
 benketibor-backend-1   | Starting Django...
 benketibor-qdrant-1    | Qdrant is running...
+benketibor-redis-1     | Ready to accept connections
 benketibor-frontend-1  | HTTP server running on port 3000
 ```
 
@@ -81,6 +89,8 @@ Nyisd meg a böngészőt:
 - **App**: http://localhost:3000
 - **API Docs**: http://localhost:8001/api/
 - **Qdrant Dashboard**: http://localhost:6334
+- **Redis**: localhost:6380 (cache layer)
+- **Cache Stats**: http://localhost:8001/api/cache-stats/
 
 ---
 

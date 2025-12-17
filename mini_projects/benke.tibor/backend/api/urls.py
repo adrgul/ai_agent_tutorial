@@ -9,6 +9,7 @@ from api.views import (
     GoogleDriveFilesAPIView,
     GoogleDriveFileContentAPIView,
     UsageStatsAPIView,
+    CacheStatsAPIView,
 )
 
 urlpatterns = [
@@ -18,4 +19,5 @@ urlpatterns = [
     path('google-drive/files/', GoogleDriveFilesAPIView.as_view(), name='google_drive_files'),
     path('google-drive/files/<str:file_id>/content/', GoogleDriveFileContentAPIView.as_view(), name='google_drive_file_content'),
     path('usage-stats/', UsageStatsAPIView.as_view(), name='usage_stats'),
+    path('cache-stats/', CacheStatsAPIView.as_view(), name='cache_stats'),
 ]

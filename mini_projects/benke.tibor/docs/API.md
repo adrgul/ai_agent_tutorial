@@ -16,8 +16,11 @@
   - [POST /api/reset-context/](#post-apireset-context)
   - [GET /api/usage-stats/](#get-apiusage-stats)
   - [DELETE /api/usage-stats/](#delete-apiusage-stats)
+  - [GET /api/cache-stats/](#get-apicache-stats)
+  - [DELETE /api/cache-stats/](#delete-apicache-stats)
   - [GET /api/google-drive/files/](#get-apigoogle-drivefiles)
 - [Data Models](#data-models)
+- [Cache Invalidation Strategy](#cache-invalidation-strategy)
 - [Status Codes](#status-codes)
 - [Rate Limits & Retry](#rate-limits--retry)
 
@@ -508,6 +511,197 @@ print(response.json()['message'])
 
 ---
 
+### GET `/api/cache-stats/`
+
+**Redis cache statisztikák lekérdezése.**
+
+Visszaadja a Redis cache állapotát, memória használatot, találati arányt és a leggyakoribb query-ket.
+
+#### Request
+
+**No parameters required.**
+
+#### Response
+
+**Success (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "stats": {
+      "connected": true,
+      "used_memory_mb": 1.06,
+      "total_keys": 125,
+      "hit_rate": 0.68,
+      "embedding_keys": 89,
+      "query_keys": 36,
+      "uptime_hours": 24.5
+    },
+    "top_queries": [
+      {
+        "query": "Mi a brand guideline?",
+        "domain": "marketing",
+        "hits": 45,
+        "cached_at": "2025-12-17T10:30:15Z"
+      },
+      {
+        "query": "Szabadság igénylés",
+        "domain": "hr",
+        "hits": 32,
+        "cached_at": "2025-12-17T09:15:22Z"
+      }
+    ]
+  },
+  "message": "Cache statistics and popular queries"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `stats.connected` | boolean | Redis kapcsolat állapota |
+| `stats.used_memory_mb` | float | Használt memória MB-ban |
+| `stats.total_keys` | integer | Összes cache kulcs |
+| `stats.hit_rate` | float | Cache találati arány (0.0-1.0) |
+| `stats.embedding_keys` | integer | Embedding cache kulcsok száma |
+| `stats.query_keys` | integer | Query result cache kulcsok száma |
+| `stats.uptime_hours` | float | Redis uptime órákban |
+| `top_queries` | array | Top 10 leggyakoribb query |
+| `top_queries[].hits` | integer | Hányszor találat volt erre a query-re |
+
+**Cache Stratégia:**
+- **Embedding Cache**: 7 nap TTL, ~6KB/embedding
+- **Query Result Cache**: 24 óra TTL, ~200B/query (doc IDs)
+- **Max Memory**: 512MB (LRU eviction)
+- **Költségmegtakarítás**: ~$0.00002/cache hit + 200ms latency javulás
+
+**Error Response (Redis unavailable):**
+```json
+{
+  "success": true,
+  "data": {
+    "stats": {
+      "connected": false
+    },
+    "top_queries": []
+  },
+  "message": "Redis cache is not available"
+}
+```
+
+#### Example Usage
+
+**cURL:**
+```bash
+curl http://localhost:8001/api/cache-stats/
+```
+
+**Python:**
+```python
+import requests
+
+response = requests.get("http://localhost:8001/api/cache-stats/")
+data = response.json()['data']
+
+print(f"Cache connected: {data['stats']['connected']}")
+print(f"Hit rate: {data['stats']['hit_rate']*100:.1f}%")
+print(f"Memory used: {data['stats']['used_memory_mb']:.2f} MB")
+print(f"\\nTop queries:")
+for query in data['top_queries'][:5]:
+    print(f"  {query['hits']}x - {query['query']} [{query['domain']}]")
+```
+
+---
+
+### DELETE `/api/cache-stats/`
+
+**Redis cache törlése vagy domain-specifikus invalidálás.**
+
+Törli az összes cache-t vagy csak egy adott domain cache-ét.
+
+#### Request
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `domain` | string | No | Domain név (hr, it, finance, marketing, legal, general) |
+
+**Examples:**
+```
+DELETE /api/cache-stats/              # Töröl mindent
+DELETE /api/cache-stats/?domain=marketing  # Csak marketing cache
+```
+
+#### Response
+
+**Success (200 OK) - Full Clear:**
+
+```json
+{
+  "success": true,
+  "message": "All cache cleared successfully",
+  "data": {
+    "keys_deleted": 125,
+    "domains_affected": ["hr", "it", "marketing", "finance"]
+  }
+}
+```
+
+**Success (200 OK) - Domain Clear:**
+
+```json
+{
+  "success": true,
+  "message": "Cache invalidated for domain: marketing",
+  "data": {
+    "keys_deleted": 36,
+    "domain": "marketing"
+  }
+}
+```
+
+**Use Cases:**
+- **Full Clear**: Deployment után vagy major config change
+- **Domain Clear**: Dokumentum update után (pl. `sync_domain_docs.py` futtatás)
+
+#### Example Usage
+
+**cURL - Teljes törlés:**
+```bash
+curl -X DELETE http://localhost:8001/api/cache-stats/
+```
+
+**cURL - Domain-specifikus:**
+```bash
+curl -X DELETE "http://localhost:8001/api/cache-stats/?domain=marketing"
+```
+
+**Python:**
+```python
+import requests
+
+# Marketing domain cache törlése
+response = requests.delete(
+    "http://localhost:8001/api/cache-stats/",
+    params={"domain": "marketing"}
+)
+print(response.json()['message'])
+```
+
+**PowerShell:**
+```powershell
+# Teljes cache törlés
+Invoke-RestMethod -Uri "http://localhost:8001/api/cache-stats/" -Method DELETE
+
+# Marketing cache törlés
+Invoke-RestMethod -Uri "http://localhost:8001/api/cache-stats/?domain=marketing" -Method DELETE
+```
+
+---
+
 ### GET `/api/google-drive/files/`
 
 **Google Drive marketing folder fájlok listázása.**
@@ -803,11 +997,114 @@ if len(context) > 100000:
 # Saves: ~30% token cost
 ```
 
-**3. Caching (Future):**
+**3. Caching:**
 ```python
-# Cache embeddings for frequently queried docs
-# Saves: $0.02 per 1M cached tokens
+# Embedding cache: 7 days TTL
+# Query result cache: 24 hours TTL
+# Saves: $0.00002 per cache hit + 200ms latency
 ```
+
+---
+
+## 🔄 Cache Invalidation Strategy
+
+### Probléma
+
+Amikor a Qdrant vector database-ben dokumentumokat frissítesz/törlöl, a Redis cache elavult eredményeket szolgálhat ki:
+
+**Példa szcenárió:**
+1. User query: "Mi a brand guideline?" → **cache HIT** (doc IDs: [123, 456])
+2. Admin **frissíti** marketing dokumentumokat → Qdrant tartalom változik
+3. User ugyanaz: "Mi a brand guideline?" → **elavult cache** ❌
+
+### Megoldás
+
+**Automatikus cache invalidálás dokumentum szinkronizálás után:**
+
+```bash
+# sync_domain_docs.py automatikusan invalidálja a cache-t
+python backend/scripts/sync_domain_docs.py --domain marketing --folder-id FOLDER_ID
+# → Qdrant frissítés
+# → Redis cache invalidálás (marketing domain)
+```
+
+**Implementáció:**
+```python
+# backend/scripts/sync_domain_docs.py
+from infrastructure.redis_client import redis_cache
+
+# Sync befejezése után
+if redis_cache.is_available():
+    redis_cache.invalidate_query_cache(domain=self.domain)
+    logger.info(f"🗑️ Redis cache invalidated for domain: {self.domain}")
+```
+
+### Cache Rétegek
+
+**4-rétegű cache stratégia:**
+
+```
+Layer 1: Query Result Cache → Qdrant doc IDs (24h TTL)
+         ├─ HIT:  Fetch by IDs (512ms) ✅ FASTEST
+         └─ MISS: ↓ Layer 2
+
+Layer 2: Embedding Cache → OpenAI embedding (7d TTL)
+         ├─ HIT:  Use cached embedding (1ms)
+         └─ MISS: Generate embedding (200ms) ↓ Layer 3
+
+Layer 3: Qdrant Search → Semantic similarity (250ms)
+         └─ Results ↓ Layer 4
+
+Layer 4: Cache Results → Store for next query
+```
+
+### Invalidálási Use Cases
+
+| Esemény | Akció | Parancs |
+|---------|-------|---------|
+| **Marketing docs frissítve** | Domain-specifikus invalidálás | `DELETE /api/cache-stats/?domain=marketing` |
+| **Minden domain frissítve** | Teljes cache törlés | `DELETE /api/cache-stats/` |
+| **Deployment** | Teljes cache törlés (óvatosan) | `DELETE /api/cache-stats/` |
+| **Redis config change** | Teljes cache törlés | `DELETE /api/cache-stats/` |
+
+### Best Practices
+
+**✅ DO:**
+- Invalidáld a domain cache-t minden `sync_domain_docs.py` futtatás után
+- Monitor cache hit rate (`GET /api/cache-stats/`)
+- Használj domain-specifikus invalidálást (precision)
+
+**❌ DON'T:**
+- Ne töröld az összes cache-t production-ben (túl gyakori full clear → cold start)
+- Ne felejtsd el invalidálni cache-t dokumentum update után
+- Ne cache-elj "real-time" adatokat (pl. live inventory)
+
+### Cache TTL Értékek
+
+| Cache Típus | TTL | Indoklás |
+|-------------|-----|----------|
+| **Embedding** | 7 nap | Dokumentum szöveg ritkán változik |
+| **Query Result** | 24 óra | Balansz: freshness vs. performance |
+| **Hit Counter** | Végtelen | Statisztika (nem invalidálódik) |
+
+### Monitoring
+
+```bash
+# Nézd meg cache health-t
+curl http://localhost:8001/api/cache-stats/
+
+# Várható eredmény:
+{
+  "hit_rate": 0.68,          # 68% találat → jó
+  "used_memory_mb": 45.2,    # 512MB alatt → rendben
+  "total_keys": 1234         # Növekszik idővel
+}
+```
+
+**Alert threshold-ok:**
+- Hit rate < 30% → Cache warming szükséges
+- Memory > 450MB → LRU eviction kezdődik (rendben)
+- Connected: false → Redis down ⚠️
 
 ---
 

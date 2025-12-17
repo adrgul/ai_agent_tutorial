@@ -24,6 +24,7 @@ KnowledgeRouter egy vállalati belső tudásbázis rendszer, amely:
 - **Backend**: Python 3.11+ | Django | LangGraph
 - **LLM**: OpenAI GPT-4o Mini (gpt-4o-mini)
 - **Vector DB**: Qdrant (self-hosted)
+- **Cache**: Redis 7 (embedding + query result cache)
 - **Frontend**: Tailwind CSS + Vanilla JavaScript (ChatGPT-style UI)
 - **Deployment**: Docker Compose
 
@@ -79,6 +80,8 @@ docker-compose up --build
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8001/api/
 - **Qdrant Dashboard**: http://localhost:6334 (vector DB)
+- **Redis**: localhost:6380 (cache)
+- **Cache Stats**: http://localhost:8001/api/cache-stats/
 - **Google Drive Files API**: http://localhost:8001/api/google-drive/files/
 
 ### 5. Google Drive Setup (opcionális)
@@ -1013,20 +1016,36 @@ docker-compose up --build
 
 ## 📚 Kapcsolódó Dokumentumok
 
-- [Installation Guide](INSTALLATION.md)
+- [Installation Guide](../INSTALLATION.md)
+- [API Documentation](API.md) - REST API endpoints, cache-stats
+- [Redis Cache Architecture](REDIS_CACHE.md) - Cache stratégia, invalidálás, monitoring
+- [Google Drive Setup](GOOGLE_DRIVE_SETUP.md) - Drive API konfiguráció
+- [Frontend Setup](FRONTEND_SETUP.md) - Tailwind CSS, Nginx
 - [LangGraph Usage (Repo)](../ai_agent_complex/docs/LANGGRAPH_USAGE_HU.md)
 - [Agent Loop (Repo)](../ai_agent_complex/docs/AGENT_LOOP_HU.md)
 - [Architecture (Repo)](../ai_agent_complex/docs/ARCHITECTURE.md)
 
 ## 🤝 Roadmap
 
-- [ ] Qdrant vector store real integration (mock → real)
-- [ ] Domain-specific workflows (HR approval, Jira ticket creation)
-- [ ] Multi-turn conversation with context tracking
-- [ ] Google Drive API integration
+### ✅ Elkészült
+- [x] Multi-domain Qdrant collection (domain filtering)
+- [x] Google Drive API integration (marketing docs)
+- [x] Redis cache (embedding + query result, 54% hit rate)
+- [x] Cache invalidálás (sync_domain_docs.py auto-invalidation)
+- [x] Token tracking & cost calculation
+- [x] Unit tesztek (61 teszt, 87-100% coverage)
+- [x] Hibakezelés (retry logic, exponential backoff)
+- [x] Multi-domain workflows (HR szabadság, IT ticket)
+
+### 🚧 Tervezett
+- [ ] Like/Dislike feedback system (Postgres + Redis cache)
+- [ ] Citation re-ranking (semantic relevance)
+- [ ] Multi-query generation (5 variáció, frequency ranking)
+- [ ] BM25 sparse vectors (lexikális keresés)
+- [ ] Monitoring & logging (Prometheus + Grafana)
+- [ ] Integration tesztek (E2E multi-domain RAG)
 - [ ] Slack integration
 - [ ] Frontend React version (optional)
-- [ ] Monitoring & logging (Prometheus + Grafana)
 
 ## 📞 Support
 

@@ -376,3 +376,68 @@ class UsageStatsAPIView(APIView):
                 {"success": False, "error": "Failed to reset usage stats"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class CacheStatsAPIView(APIView):
+    """
+    GET /api/cache-stats/ - Get Redis cache statistics and top queries.
+    DELETE /api/cache-stats/ - Clear cache (with optional domain filter).
+    """
+
+    def get(self, request: Request) -> Response:
+        """Get cache statistics and top queries."""
+        try:
+            from infrastructure.redis_client import redis_cache
+            
+            # Get overall cache stats
+            stats = redis_cache.get_cache_stats()
+            
+            # Get top queries
+            top_queries = redis_cache.get_top_queries(limit=10)
+            
+            return Response(
+                {
+                    "success": True,
+                    "data": {
+                        "stats": stats,
+                        "top_queries": top_queries
+                    },
+                    "message": "Cache statistics and popular queries"
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            logger.error(f"Cache stats error: {e}", exc_info=True)
+            return Response(
+                {"success": False, "error": "Failed to retrieve cache stats"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+    
+    def delete(self, request: Request) -> Response:
+        """Clear cache (optionally filtered by domain)."""
+        try:
+            from infrastructure.redis_client import redis_cache
+            
+            domain = request.query_params.get("domain")  # Optional domain filter
+            
+            if domain:
+                redis_cache.invalidate_query_cache(domain=domain)
+                message = f"Cache cleared for domain: {domain}"
+            else:
+                redis_cache.clear_all()
+                message = "All cache cleared"
+            
+            return Response(
+                {
+                    "success": True,
+                    "message": message
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            logger.error(f"Clear cache error: {e}", exc_info=True)
+            return Response(
+                {"success": False, "error": "Failed to clear cache"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+

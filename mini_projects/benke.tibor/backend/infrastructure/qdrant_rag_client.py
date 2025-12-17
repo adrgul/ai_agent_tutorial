@@ -11,6 +11,7 @@ from qdrant_client.models import Filter, FieldCondition, MatchValue
 from domain.models import Citation, DomainType
 from domain.interfaces import IRAGClient
 from infrastructure.openai_clients import OpenAIClientFactory
+from infrastructure.redis_client import redis_cache
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +80,13 @@ class QdrantRAGClient(IRAGClient):
 
     async def _retrieve_from_qdrant(self, query: str, top_k: int, domain: str = "marketing") -> List[Citation]:
         """
-        Retrieve documents from Qdrant using hybrid search (semantic + lexical).
-        Filters by domain to search only within specific knowledge base.
+        Retrieve documents from Qdrant using hybrid search with Redis caching.
+        
+        Caching layers:
+        1. Check query result cache (doc IDs) - FASTEST
+        2. If miss: Check embedding cache, generate if needed
+        3. Search Qdrant with semantic similarity
+        4. Cache results for next time
         
         Args:
             query: User query
@@ -91,8 +97,22 @@ class QdrantRAGClient(IRAGClient):
             List of citations from Qdrant
         """
         try:
-            # Generate query embedding for semantic search
-            query_embedding = self.embeddings.embed_query(query)
+            # Layer 1: Check query result cache (full cache hit)
+            cached_result = redis_cache.get_query_result(query, domain)
+            if cached_result and cached_result.get("doc_ids"):
+                # Fetch documents by IDs from Qdrant
+                logger.info(f"🚀 FULL CACHE HIT - Fetching {len(cached_result['doc_ids'])} docs by ID")
+                return await self._fetch_by_qdrant_ids(cached_result["doc_ids"], domain)
+            
+            # Layer 2: Generate/retrieve embedding (partial cache hit)
+            cached_embedding = redis_cache.get_embedding(query)
+            if cached_embedding:
+                query_embedding = cached_embedding
+                logger.info("⚡ Embedding from cache")
+            else:
+                query_embedding = self.embeddings.embed_query(query)
+                redis_cache.set_embedding(query, query_embedding)
+                logger.info("🔄 New embedding generated and cached")
             
             # Domain filter - only search within specific domain
             domain_filter = Filter(
@@ -104,22 +124,21 @@ class QdrantRAGClient(IRAGClient):
                 ]
             )
             
-            # Hybrid search: semantic (dense) + lexical (sparse/BM25)
-            # Note: Qdrant needs sparse vectors indexed for full BM25
-            # For now using semantic with domain filter, prepared for hybrid
+            # Layer 3: Qdrant search with cached embedding
             search_results = self.qdrant_client.search(
                 collection_name=self.collection_name,
                 query_vector=query_embedding,
-                query_filter=domain_filter,  # Domain-specific search
+                query_filter=domain_filter,
                 limit=top_k,
                 with_payload=True
             )
             
             # Convert to Citations
             citations = []
+            doc_ids = []  # For caching
+            
             for point in search_results:
                 payload = point.payload
-                # Map payload fields (source_file_id/name from sync script)
                 file_id = payload.get("source_file_id") or payload.get("file_id", "UNKNOWN")
                 file_name = payload.get("source_file_name") or payload.get("file_name", "Unknown Document")
                 chunk_index = payload.get("chunk_index", 0)
@@ -130,15 +149,78 @@ class QdrantRAGClient(IRAGClient):
                         title=file_name,
                         score=float(point.score),
                         url=None,
-                        content=payload.get("text", "")  # Include chunk text for generation
+                        content=payload.get("text", "")
                     )
                 )
+                doc_ids.append(str(point.id))  # Store Qdrant point ID (UUID string)
+            
+            # Layer 4: Cache query results
+            if citations:
+                metadata = {
+                    "top_score": citations[0].score,
+                    "result_count": len(citations),
+                    "top_k": top_k
+                }
+                redis_cache.set_query_result(query, domain, doc_ids, metadata)
+                logger.info(f"💾 Cached {len(doc_ids)} doc IDs for future queries")
             
             logger.info(f"Retrieved {len(citations)} docs from Qdrant (domain={domain}) for query: {query[:50]}...")
             return citations
             
         except Exception as e:
             logger.error(f"Qdrant retrieval error: {e}", exc_info=True)
+            return []
+    
+    async def _fetch_by_qdrant_ids(self, point_ids: List[str], domain: str) -> List[Citation]:
+        """
+        Fetch documents directly by Qdrant point IDs (for cache hits).
+        
+        Args:
+            point_ids: List of Qdrant point IDs (UUID strings)
+            domain: Domain filter (for logging)
+            
+        Returns:
+            List of citations
+        """
+        try:
+            # Retrieve points by IDs
+            points = self.qdrant_client.retrieve(
+                collection_name=self.collection_name,
+                ids=point_ids,
+                with_payload=True,
+                with_vectors=False  # Don't need vectors
+            )
+            
+            # Convert to Citations (maintain order from cache)
+            id_to_point = {p.id: p for p in points}
+            citations = []
+            
+            for point_id in point_ids:
+                point = id_to_point.get(point_id)
+                if not point:
+                    logger.warning(f"Point ID {point_id} not found in Qdrant")
+                    continue
+                
+                payload = point.payload
+                file_id = payload.get("source_file_id") or payload.get("file_id", "UNKNOWN")
+                file_name = payload.get("source_file_name") or payload.get("file_name", "Unknown Document")
+                chunk_index = payload.get("chunk_index", 0)
+                
+                citations.append(
+                    Citation(
+                        doc_id=f"{file_id}#chunk{chunk_index}",
+                        title=file_name,
+                        score=1.0,  # No score from retrieve, use 1.0
+                        url=None,
+                        content=payload.get("text", "")
+                    )
+                )
+            
+            logger.info(f"✅ Fetched {len(citations)}/{len(point_ids)} cached docs from Qdrant (domain={domain})")
+            return citations
+            
+        except Exception as e:
+            logger.error(f"Qdrant fetch by IDs error: {e}", exc_info=True)
             return []
 
     async def _retrieve_mock_data(self, domain: DomainType, query: str, top_k: int) -> List[Citation]:
