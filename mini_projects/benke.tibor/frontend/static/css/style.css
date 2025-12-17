@@ -285,6 +285,12 @@ main {
             border-radius: 1rem;
             word-wrap: break-word;
             line-height: 1.5;
+            position: relative;
+        }
+        
+        .message.bot .message-content {
+            width: 70%;
+            max-width: 70%;
         }
         
         .message.user .message-content {
@@ -317,6 +323,158 @@ main {
             color: #999;
             margin-top: 0.5rem;
             font-style: italic;
+        }
+        
+        /* Refresh button */
+        .refresh-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: #3d3d3d;
+            border: 1px solid #4d4d4d;
+            color: #ececf1;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            opacity: 0.7;
+        }
+        
+        .refresh-btn:hover {
+            opacity: 1;
+            background: #4d4d4d;
+            transform: scale(1.05);
+        }
+        
+        /* Citations container - clean design */
+        .citations-container {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            border: 1px solid #3d3d3d;
+        }
+        
+        .citations-header {
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #3d3d3d;
+        }
+        
+        .citations-title {
+            color: #10a37f;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .citations-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 1rem 0;
+        }
+        
+        .citations-list li {
+            padding: 0.5rem 0;
+            color: #ececf1;
+            font-size: 0.875rem;
+            border-bottom: 1px solid #2d2d2d;
+        }
+        
+        .citations-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .citation-link {
+            color: #10a37f;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        
+        .citation-link:hover {
+            color: #1ad1a5;
+            text-decoration: underline;
+        }
+        
+        /* No citations message */
+        .no-citations-container {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            border: 1px solid #3d3d3d;
+        }
+        
+        .no-citations-text {
+            color: #999;
+            font-size: 0.875rem;
+            font-style: italic;
+            margin: 0 0 1rem 0;
+        }
+        
+        /* Response-level feedback (single feedback per answer) */
+        .response-feedback {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem;
+            background: #2d2d2d;
+            border-radius: 0.5rem;
+            margin-top: 0.75rem;
+            gap: 1rem;
+        }
+        
+        .feedback-label {
+            color: #ececf1;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .feedback-buttons {
+            display: flex;
+            gap: 0.75rem;
+        }
+        
+        .feedback-btn {
+            background: #3d3d3d;
+            border: 1px solid #4d4d4d;
+            color: #ececf1;
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+            white-space: nowrap;
+        }
+        
+        .feedback-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .feedback-btn:hover {
+            background: #4d4d4d;
+            transform: scale(1.1);
+        }
+        
+        .feedback-btn.active {
+            border-color: #10a37f;
+            box-shadow: 0 0 8px rgba(16, 163, 127, 0.5);
+        }
+        
+        .like-btn:hover {
+            background: #2d5016;
+            border-color: #4a8020;
+        }
+        
+        .dislike-btn:hover {
+            background: #5c1616;
+            border-color: #8b2020;
         }
         
         .debug-panel {
@@ -556,7 +714,7 @@ main {
 
         .refresh-btn {
             position: absolute;
-            bottom: 0.5rem;
+            top: 0.5rem;
             right: 0.5rem;
             padding: 0.35rem 0.5rem;
             background: rgba(45, 45, 45, 0.8);

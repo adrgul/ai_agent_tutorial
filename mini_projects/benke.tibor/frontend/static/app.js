@@ -44,7 +44,7 @@ function hideTyping() {
     typingEl = null;
 }
 
-function addMessage(content, type = 'info', citations = null, originalQuery = null) {
+function addMessage(content, type = 'info', citations = null, originalQuery = null, citationObjects = null, domain = null, sessionId = null) {
     clearEmptyState();
 
     const messageDiv = document.createElement('div');
@@ -59,7 +59,61 @@ function addMessage(content, type = 'info', citations = null, originalQuery = nu
     
     html += formatMessage(content);
 
-    if (citations && citations.length > 0) {
+    // Always show feedback for bot responses
+    if (type === 'bot' && domain && sessionId) {
+        const responseId = `response-${sessionId}-${Date.now()}`;
+        
+        // Display citations if available
+        if (citationObjects && citationObjects.length > 0) {
+            html += `<div class="citations-container">`;
+            html += `<div class="citations-header">`;
+            html += `<h4 class="citations-title">📚 Felhasznált források (${citationObjects.length})</h4>`;
+            html += `</div>`;
+            
+            // List all source documents
+            html += `<ul class="citations-list">`;
+            citationObjects.forEach((citation, index) => {
+                const title = citation.title || 'Ismeretlen dokumentum';
+                const url = citation.url || null;
+                
+                if (url) {
+                    html += `<li><a href="${url}" target="_blank" class="citation-link">🔗 ${escapeHtml(title)}</a></li>`;
+                } else {
+                    html += `<li>📄 ${escapeHtml(title)}</li>`;
+                }
+            });
+            html += `</ul>`;
+        } else {
+            // No citations - show info message
+            html += `<div class="no-citations-container">`;
+            html += `<p class="no-citations-text">💡 Ez a válasz általános tudáson alapul, nincs konkrét dokumentum forrás.</p>`;
+        }
+        
+        // Single feedback for entire response (always shown)
+        html += `<div class="response-feedback">`;
+        html += `<span class="feedback-label">Hasznos volt a válasz?</span>`;
+        html += `<div class="feedback-buttons">`;
+        
+        const escapedQuery = escapeHtml(originalQuery).replace(/'/g, "\\'");
+        
+        html += `
+            <button class="feedback-btn like-btn" onclick="submitResponseFeedback(this, '${responseId}', '${domain}', '${sessionId}', '${escapedQuery}', 'like')" title="Igen, segített">
+                👍 Igen
+            </button>
+            <button class="feedback-btn dislike-btn" onclick="submitResponseFeedback(this, '${responseId}', '${domain}', '${sessionId}', '${escapedQuery}', 'dislike')" title="Nem volt releváns">
+                👎 Nem
+            </button>
+        `;
+        html += `</div>`;
+        html += `</div>`;
+        
+        if (citationObjects && citationObjects.length > 0) {
+            html += `</div>`; // Close citations-container
+        } else {
+            html += `</div>`; // Close no-citations-container
+        }
+    } else if (citations && citations.length > 0) {
+        // Fallback for simple citation list (old style)
         html += `<div class="citations">📎 Források: ${citations.join(', ')}</div>`;
     }
 
@@ -189,7 +243,10 @@ queryForm.addEventListener('submit', async (e) => {
             payload.answer || 'Sajnos nem tudtam válaszolni.',
             'bot',
             citations,
-            query  // Pass original query for refresh button
+            query,  // Pass original query for refresh button
+            payload.citations,  // Pass full citation objects
+            payload.domain,  // Pass domain
+            sessionId  // Pass session ID
         );
 
     } catch (error) {
@@ -202,6 +259,107 @@ queryForm.addEventListener('submit', async (e) => {
         hideTyping();
     }
 });
+
+// Submit response-level feedback (single feedback for entire answer)
+async function submitResponseFeedback(buttonElement, responseId, domain, sessionId, queryText, feedbackType) {
+    const userId = userIdInput.value.trim() || 'demo_user';
+    
+    try {
+        const response = await fetch('http://localhost:8001/api/feedback/citation/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                citation_id: responseId,
+                domain: domain,
+                user_id: userId,
+                session_id: sessionId,
+                query_text: queryText,
+                feedback_type: feedbackType,
+                citation_rank: 0  // 0 = response-level feedback
+            })
+        });
+        
+        if (!response.ok) {
+            console.error('Feedback submission failed:', await response.text());
+            return;
+        }
+        
+        const result = await response.json();
+        console.log('✅ Feedback saved:', result);
+        
+        // Visual feedback - disable both buttons and show confirmation
+        const feedbackContainer = buttonElement.closest('.response-feedback');
+        if (feedbackContainer) {
+            const buttons = feedbackContainer.querySelectorAll('.feedback-btn');
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                btn.classList.remove('active');
+            });
+            
+            buttonElement.classList.add('active');
+            
+            // Show thank you message
+            const label = feedbackContainer.querySelector('.feedback-label');
+            if (label) {
+                label.textContent = feedbackType === 'like' ? '✅ Köszönjük a visszajelzést!' : '📝 Köszönjük, dolgozunk a javításon!';
+            }
+        }
+
+    } catch (error) {
+        console.error('Feedback error:', error);
+    }
+}
+
+// Submit citation feedback (kept for backward compatibility, but not used in new design)
+async function submitFeedback(citationId, domain, sessionId, queryText, feedbackType, rank) {
+    const userId = userIdInput.value.trim() || 'demo_user';
+    
+    try {
+        const response = await fetch('http://localhost:8001/api/feedback/citation/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                citation_id: citationId,
+                domain: domain,
+                user_id: userId,
+                session_id: sessionId,
+                query_text: queryText,
+                feedback_type: feedbackType,
+                citation_rank: rank
+            })
+        });
+        
+        if (!response.ok) {
+            console.error('Feedback submission failed:', await response.text());
+            return;
+        }
+        
+        const result = await response.json();
+        console.log('✅ Feedback saved:', result);
+        
+        // Visual feedback - highlight the clicked button
+        const citationCard = document.querySelector(`[data-citation-id="${citationId}"]`);
+        if (citationCard) {
+            const buttons = citationCard.querySelectorAll('.feedback-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            const clickedBtn = citationCard.querySelector(`.${feedbackType}-btn`);
+            if (clickedBtn) {
+                clickedBtn.classList.add('active');
+                
+                // Show temporary checkmark
+                const originalText = clickedBtn.textContent;
+                clickedBtn.textContent = feedbackType === 'like' ? '✅' : '❌';
+                setTimeout(() => {
+                    clickedBtn.textContent = originalText;
+                }, 1000);
+            }
+        }
+        
+    } catch (error) {
+        console.error('Feedback error:', error);
+    }
+}
 
 // Reset chat to empty state
 if (resetBtn) {

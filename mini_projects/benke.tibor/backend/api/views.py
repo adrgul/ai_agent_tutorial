@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.request import Request
+from asgiref.sync import async_to_sync
 
 from domain.models import QueryRequest
 from infrastructure.error_handling import APICallError, check_token_limit, estimate_tokens
@@ -440,4 +441,130 @@ class CacheStatsAPIView(APIView):
                 {"success": False, "error": "Failed to clear cache"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class CitationFeedbackAPIView(APIView):
+    """
+    POST /api/feedback/citation/ - Submit citation feedback (like/dislike).
+    """
+
+    def post(self, request: Request) -> Response:
+        """Submit citation feedback."""
+        try:
+            import json
+            import asyncio
+            from domain.models import CitationFeedback, FeedbackType
+            from infrastructure.postgres_client import postgres_client
+            
+            # Parse JSON body manually
+            try:
+                data = json.loads(request.body.decode('utf-8'))
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                return Response(
+                    {"success": False, "error": "Invalid JSON body"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Validate request data
+            required_fields = ["citation_id", "domain", "user_id", "session_id", "query_text", "feedback_type"]
+            
+            for field in required_fields:
+                if field not in data:
+                    return Response(
+                        {"success": False, "error": f"Missing required field: {field}"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            # Validate feedback_type
+            if data["feedback_type"] not in ["like", "dislike"]:
+                return Response(
+                    {"success": False, "error": "feedback_type must be 'like' or 'dislike'"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Create feedback model
+            feedback = CitationFeedback(
+                citation_id=data["citation_id"],
+                domain=data["domain"],
+                user_id=data["user_id"],
+                session_id=data["session_id"],
+                query_text=data["query_text"],
+                query_embedding=data.get("query_embedding"),  # Optional
+                feedback_type=FeedbackType(data["feedback_type"]),
+                citation_rank=data.get("citation_rank")  # Optional
+            )
+            
+            # Schedule feedback save as background task (non-blocking)
+            # This avoids event loop conflicts
+            import threading
+            
+            def save_feedback_background():
+                """Background thread to save feedback."""
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    feedback_id = loop.run_until_complete(postgres_client.save_citation_feedback_standalone(feedback))
+                    logger.info(f"Feedback saved: {feedback_id}")
+                    # Refresh stats
+                    loop.run_until_complete(postgres_client.refresh_stats())
+                except Exception as e:
+                    logger.error(f"Background feedback save failed: {e}")
+                finally:
+                    loop.close()
+            
+            # Start background thread
+            thread = threading.Thread(target=save_feedback_background, daemon=True)
+            thread.start()
+            
+            # Return immediately (optimistic response)
+            return Response(
+                {
+                    "success": True,
+                    "message": "Feedback received and will be processed"
+                },
+                status=status.HTTP_201_CREATED
+            )
+            
+        except Exception as e:
+            logger.error(f"Citation feedback error: {e}", exc_info=True)
+            return Response(
+                {"success": False, "error": "Failed to save feedback"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class FeedbackStatsAPIView(APIView):
+    """
+    GET /api/feedback/stats/ - Get feedback statistics.
+    Query params:
+        - domain: Filter by domain (optional)
+    """
+
+    def get(self, request: Request) -> Response:
+        """Get feedback statistics."""
+        try:
+            from infrastructure.postgres_client import postgres_client
+            from asgiref.sync import async_to_sync
+            
+            domain = request.query_params.get("domain")  # Optional domain filter
+            
+            stats = async_to_sync(postgres_client.get_feedback_stats)(domain=domain)
+            
+            return Response(
+                {
+                    "success": True,
+                    "data": stats.dict(),
+                    "domain_filter": domain if domain else "all"
+                },
+                status=status.HTTP_200_OK
+            )
+            
+        except Exception as e:
+            logger.error(f"Feedback stats error: {e}", exc_info=True)
+            return Response(
+                {"success": False, "error": "Failed to retrieve feedback stats"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 

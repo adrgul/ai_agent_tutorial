@@ -1,6 +1,6 @@
 # KnowledgeRouter API Documentation
 
-**Version:** 2.0  
+**Version:** 2.1  
 **Base URL:** `http://localhost:8001/api/`  
 **Content-Type:** `application/json`
 
@@ -18,9 +18,12 @@
   - [DELETE /api/usage-stats/](#delete-apiusage-stats)
   - [GET /api/cache-stats/](#get-apicache-stats)
   - [DELETE /api/cache-stats/](#delete-apicache-stats)
+  - [POST /api/feedback/citation/](#post-apifeedbackcitation) **NEW**
+  - [GET /api/feedback/stats/](#get-apifeedbackstats) **NEW**
   - [GET /api/google-drive/files/](#get-apigoogle-drivefiles)
 - [Data Models](#data-models)
 - [Cache Invalidation Strategy](#cache-invalidation-strategy)
+- [Feedback System](#feedback-system) **NEW**
 - [Status Codes](#status-codes)
 - [Rate Limits & Retry](#rate-limits--retry)
 
@@ -1108,9 +1111,183 @@ curl http://localhost:8001/api/cache-stats/
 
 ---
 
+## 📊 Feedback System
+
+### POST `/api/feedback/citation/`
+
+**Submit user feedback (like/dislike) for a specific citation.**
+
+Aszinkron háttérfolyamatban menti az adatbázisba (PostgreSQL), nem blokkolja a választ. Támogatja domain-specifikus feedback aggregációt és citation ranking-et.
+
+#### Request
+
+**Headers:**
+```
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "citation_id": "string",
+  "domain": "string",
+  "user_id": "string",
+  "session_id": "string",
+  "query_text": "string",
+  "feedback_type": "like" | "dislike",
+  "query_embedding": [float] (optional),
+  "citation_rank": integer (optional)
+}
+```
+
+**Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `citation_id` | string | Yes | Document ID (Qdrant point ID) |
+| `domain` | string | Yes | Domain (marketing, hr, it, etc.) |
+| `user_id` | string | Yes | User identifier |
+| `session_id` | string | Yes | Conversation session ID |
+| `query_text` | string | Yes | Original user query |
+| `feedback_type` | string | Yes | "like" or "dislike" |
+| `query_embedding` | array | No | 1536-dim embedding for context-aware scoring |
+| `citation_rank` | integer | No | Position in citation list (1, 2, 3, ...) |
+
+#### Response
+
+**Success (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Feedback received and will be processed"
+}
+```
+
+**Error (400 Bad Request):**
+```json
+{
+  "success": false,
+  "error": "Missing required field: citation_id"
+}
+```
+
+**Error (500 Internal Server Error):**
+```json
+{
+  "success": false,
+  "error": "Failed to save feedback"
+}
+```
+
+#### Example
+
+```bash
+curl -X POST http://localhost:8001/api/feedback/citation/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "citation_id": "marketing_doc_001",
+    "domain": "marketing",
+    "user_id": "emp_123",
+    "session_id": "sess_abc",
+    "query_text": "What is our brand color?",
+    "feedback_type": "like",
+    "citation_rank": 1
+  }'
+```
+
+**Notes:**
+- Feedback mentése aszinkron (background thread)
+- Duplicate feedback (user + citation + session) felülírja az előzőt
+- Stats materialized view auto-refresh (best effort)
+
+---
+
+### GET `/api/feedback/stats/`
+
+**Get aggregated feedback statistics.**
+
+Visszaadja az összesített like/dislike statisztikákat domain-szűréssel. Materialized view-ból olvas (gyors query).
+
+#### Request
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| `domain` | string | No | Filter by specific domain | `?domain=marketing` |
+
+#### Response
+
+**Success (200 OK):**
+```json
+{
+  "success": true,
+  "domain_filter": "marketing",
+  "data": {
+    "total_feedbacks": 156,
+    "like_count": 128,
+    "dislike_count": 28,
+    "like_ratio": 0.82,
+    "by_domain": {
+      "marketing": {
+        "total": 156,
+        "likes": 128,
+        "dislikes": 28,
+        "like_percentage": 82.05
+      }
+    },
+    "top_liked_citations": [
+      {
+        "citation_id": "marketing_doc_001",
+        "likes": 45,
+        "dislikes": 2,
+        "like_percentage": 95.74
+      }
+    ],
+    "top_disliked_citations": [
+      {
+        "citation_id": "marketing_doc_099",
+        "likes": 3,
+        "dislikes": 12,
+        "like_percentage": 20.0
+      }
+    ]
+  }
+}
+```
+
+**Error (500 Internal Server Error):**
+```json
+{
+  "success": false,
+  "error": "Failed to retrieve feedback stats"
+}
+```
+
+#### Examples
+
+```bash
+# All domains
+curl http://localhost:8001/api/feedback/stats/
+
+# Marketing only
+curl http://localhost:8001/api/feedback/stats/?domain=marketing
+
+# HR only
+curl http://localhost:8001/api/feedback/stats/?domain=hr
+```
+
+**Notes:**
+- Stats frissülnek minden új feedback után (REFRESH MATERIALIZED VIEW)
+- Domain filter case-insensitive
+- Empty result ha nincs feedback
+
+---
+
 ## 🔗 Related Documentation
 
 - [Main README](../README.md)
+- [Redis Cache Architecture](REDIS_CACHE.md)
 - [Installation Guide](../INSTALLATION.md)
 - [Error Handling Architecture](ERROR_HANDLING.md) (coming soon)
 - [Google Drive Setup](GOOGLE_DRIVE_SETUP.md)

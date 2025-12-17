@@ -59,7 +59,36 @@ class MockQdrantClient(IRAGClient):
                 {
                     "doc_id": "BRAND-v3.2",
                     "title": "Brand Guidelines v3.2",
-                    "content": "A legfrissebb brand guideline v3.2...",
+                    "content": """Brand Guidelines v3.2 - Teljes útmutató
+                    
+1. Színpaletta
+- Elsődleges szín: #10a37f (zöld)
+- Másodlagos szín: #1a1a1a (sötétszürke)
+- Kiegészítő szín: #ececf1 (világosszürke)
+
+2. Tipográfia
+- Főbetűtípus: Arial, Regular, 12pt.
+- Címek: Arial Bold, 16pt.
+- Egyéb betűtípusok: Használj maximalisan 2-3 különböző betűtípust a tiszta és egységes megjelenés érdekében.
+
+3. Logóhasználat
+- A logó mindig tiszta háttéren jelenjen meg
+- Minimum méret: 48x48 pixel
+- Védőterület: 10px minden oldalon
+
+4. Képhasználat
+- Stílus: A képek legyenek professzionálisak, tükrözzék a cég értékeit.
+- Minőség: Mindig használj HD minőségű képeket, kerüld az alacsony felbontású képeket.
+
+5. Hangvétel és kommunikáció
+- Írásbeli kommunikáció: Barátságos, de professzionális hangvétel.
+- Szóhasználat: Kerüld a túlzott szakmai zsargont, a cél közönség számára érthető nyelvezetet használj.
+
+6. Alkalmazás platformok
+- Weboldal: A weboldalon a brand guideline összes elemét követni kell, beleértve a színpalettát és a betűtípusokat.
+- Közösségi média: A közösségi médiában a brand elemek egységes alkalmazása szükséges a márka arculatának megőrzése érdekében.
+
+Ezek az irányelvek segítik a márkánk egységes megjelenését és kommunikációját minden platformon. Kérjük, hogy minden munkatárs tartsa be ezeket a szabályokat a brand integritásának megőrzése érdekében. Ha további részletekre van szükséged, kérlek, jelezd!""",
                     "score": 0.97
                 },
             ],

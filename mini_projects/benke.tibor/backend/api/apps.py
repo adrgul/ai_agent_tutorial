@@ -24,19 +24,33 @@ class ApiConfig(AppConfig):
                 FileUserRepository,
                 FileConversationRepository,
             )
-            from infrastructure.qdrant_rag_client import QdrantRAGClient
+            from infrastructure.rag_client import MockQdrantClient  # Use Mock for development
+            from infrastructure.postgres_client import postgres_client
             from services.agent import QueryAgent
             from services.chat_service import ChatService
+
+            # Initialize Postgres connection pool (defer to first request if in event loop)
+            try:
+                import asyncio
+                # Check if event loop is already running (uvicorn/ASGI)
+                try:
+                    loop = asyncio.get_running_loop()
+                    # Event loop running - schedule initialization
+                    loop.create_task(postgres_client.initialize())
+                    logger.info("✅ Postgres initialization scheduled")
+                except RuntimeError:
+                    # No event loop - safe to use asyncio.run()
+                    asyncio.run(postgres_client.initialize())
+                    logger.info("✅ Postgres initialized")
+            except Exception as pg_error:
+                logger.warning(f"⚠️ Postgres initialization failed (feedback disabled): {pg_error}")
 
             # Initialize repositories
             user_repo = FileUserRepository(data_dir=settings.USERS_DIR)
             conversation_repo = FileConversationRepository(data_dir=settings.SESSIONS_DIR)
 
-            # Initialize RAG client (Qdrant-based) - uses centralized embeddings
-            rag_client = QdrantRAGClient(
-                qdrant_url=getattr(settings, 'QDRANT_URL', 'http://localhost:6334'),
-                collection_name=getattr(settings, 'QDRANT_COLLECTION', 'multi_domain_kb')
-            )
+            # Initialize RAG client (Mock for development - has pre-loaded docs)
+            rag_client = MockQdrantClient()
 
             # Initialize LLM from centralized factory
             llm = OpenAIClientFactory.get_llm(
