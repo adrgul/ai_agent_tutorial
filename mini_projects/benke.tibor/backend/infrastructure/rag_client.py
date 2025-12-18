@@ -6,8 +6,31 @@ from typing import List, Dict, Any, Optional
 
 from domain.models import Citation, DomainType
 from domain.interfaces import IRAGClient
+from infrastructure.postgres_client import postgres_client
 
 logger = logging.getLogger(__name__)
+
+
+def calculate_feedback_boost(like_percentage: Optional[float]) -> float:
+    """
+    Calculate multiplicative boost factor based on user feedback.
+    Same formula as QdrantRAGClient for consistency.
+    
+    Args:
+        like_percentage: Percentage of likes (0-100) or None if no feedback
+        
+    Returns:
+        Boost factor: -0.2 to +0.3
+    """
+    if like_percentage is None:
+        return 0.0  # Neutral for new content
+    
+    if like_percentage > 70:
+        return 0.3  # High quality boost
+    elif like_percentage >= 40:
+        return 0.1  # Moderate boost
+    else:
+        return -0.2  # Quality penalty
 
 
 class MockQdrantClient(IRAGClient):
@@ -129,6 +152,45 @@ Ezek az irányelvek segítik a márkánk egységes megjelenését és kommuniká
             )
             for doc in scored_docs[:top_k]
         ]
+        
+        # Apply feedback-weighted re-ranking (same as QdrantRAGClient)
+        logger.info(f"🔍 DEBUG: postgres_client.pool = {postgres_client.pool}")
+        logger.info(f"🔍 DEBUG: postgres_client.is_available() = {postgres_client.is_available()}")
+        
+        if postgres_client.is_available():
+            logger.info("🎯 Applying feedback-weighted re-ranking (MockQdrantClient)...")
+            
+            # Use asgiref.sync to call async function from sync context
+            from asgiref.sync import async_to_sync
+            
+            for citation in citations:
+                # Fetch feedback percentage (sync wrapper for async method)
+                like_pct = async_to_sync(postgres_client.get_citation_feedback_percentage)(
+                    citation.doc_id,
+                    domain
+                )
+                
+                # Calculate boost factor
+                boost = calculate_feedback_boost(like_pct)
+                
+                # Apply boost to score
+                original_score = citation.score
+                citation.score = original_score * (1 + boost)
+                
+                if like_pct is not None:
+                    logger.info(
+                        f"📊 {citation.doc_id}: "
+                        f"semantic={original_score:.3f}, "
+                        f"feedback={like_pct:.1f}%, "
+                        f"boost={boost:+.1f}, "
+                        f"final={citation.score:.3f}"
+                    )
+            
+            # Re-sort by boosted score
+            citations.sort(key=lambda c: c.score, reverse=True)
+            logger.info(f"✅ Re-ranked {len(citations)} citations by feedback-weighted scores")
+        else:
+            logger.warning("⚠️ PostgreSQL unavailable, skipping feedback ranking")
         
         logger.info(f"Retrieved {len(citations)} docs for domain={domain}")
         return citations

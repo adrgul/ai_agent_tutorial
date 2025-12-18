@@ -23,6 +23,27 @@ class PostgresClient:
         self.user = os.getenv("POSTGRES_USER", "kruser")
         self.password = os.getenv("POSTGRES_PASSWORD", "krpass123")
         self.pool: Optional[asyncpg.Pool] = None
+        self._init_lock = None  # Async lock for thread-safe lazy init
+        
+    async def ensure_initialized(self):
+        """Ensure pool is initialized (lazy init, thread-safe)."""
+        if self.pool is not None:
+            return  # Already initialized
+        
+        # Import asyncio here to get the CURRENT event loop's lock
+        import asyncio
+        
+        # Create lock if not exists (in current event loop)
+        if self._init_lock is None:
+            self._init_lock = asyncio.Lock()
+        
+        async with self._init_lock:
+            # Double-check after acquiring lock
+            if self.pool is not None:
+                return
+            
+            logger.info("🔄 Lazy-initializing Postgres pool in request event loop...")
+            await self.initialize()
         
     async def initialize(self):
         """Create connection pool."""
@@ -49,8 +70,12 @@ class PostgresClient:
             logger.info("🔌 Postgres connection pool closed")
     
     def is_available(self) -> bool:
-        """Check if Postgres is available."""
-        return self.pool is not None
+        """
+        Check if Postgres is available.
+        With lazy initialization, this always returns True - 
+        the pool will be created on first use via ensure_initialized().
+        """
+        return True  # Lazy init - pool created on demand
     
     @asynccontextmanager
     async def get_connection(self):
@@ -58,8 +83,11 @@ class PostgresClient:
         if not self.pool:
             raise RuntimeError("PostgresClient not initialized. Call initialize() first.")
         
+        logger.debug(f"🔵 Acquiring connection from pool (size: {self.pool.get_size()}, free: {self.pool.get_size() - self.pool.get_idle_size()})")
         async with self.pool.acquire() as conn:
+            logger.debug(f"✅ Connection acquired: {id(conn)}")
             yield conn
+            logger.debug(f"🔴 Releasing connection: {id(conn)}")
     
     async def get_standalone_connection(self):
         """
@@ -67,13 +95,16 @@ class PostgresClient:
         Use this for background threads where pool may not be thread-safe.
         Caller must close the connection.
         """
-        return await asyncpg.connect(
+        logger.debug(f"🟢 Creating standalone connection (bypassing pool)")
+        conn = await asyncpg.connect(
             host=self.host,
             port=self.port,
             database=self.database,
             user=self.user,
             password=self.password
         )
+        logger.debug(f"✅ Standalone connection created: {id(conn)}")
+        return conn
     
     # ==================== Citation Feedback ====================
     
@@ -277,6 +308,117 @@ class PostgresClient:
         except Exception as e:
             logger.error(f"❌ Failed to calculate citation score: {e}")
             return 0.0
+    
+    async def get_citation_feedback_batch(
+        self,
+        citation_ids: List[str],
+        domain: str
+    ) -> Dict[str, float]:
+        """
+        Get like percentages for multiple citations in a single query (BATCH).
+        Uses standalone connection to avoid "another operation is in progress" pool errors.
+        
+        Args:
+            citation_ids: List of citation IDs to look up
+            domain: Domain context
+            
+        Returns:
+            Dict mapping citation_id -> like_percentage (0-100)
+            Only includes citations that have feedback
+            
+        Example:
+            >>> await postgres_client.get_citation_feedback_batch(["doc1#chunk0", "doc2#chunk1"], "marketing")
+            {"doc1#chunk0": 85.5, "doc2#chunk1": 92.0}
+        """
+        if not citation_ids:
+            return {}
+        
+        # Ensure pool initialized in current event loop before creating connections
+        await self.ensure_initialized()
+        
+        # Use standalone connection to avoid pool contention issues
+        conn = None
+        try:
+            logger.debug(f"🔍 Batch feedback lookup for {len(citation_ids)} citations in domain={domain}")
+            conn = await self.get_standalone_connection()
+            logger.debug(f"🔍 Executing batch query with connection {id(conn)}")
+            rows = await conn.fetch(
+                """
+                SELECT citation_id, like_percentage, like_count, dislike_count, total_feedback
+                FROM citation_stats
+                WHERE citation_id = ANY($1) AND domain = $2
+                """,
+                citation_ids,
+                domain
+            )
+            logger.debug(f"✅ Batch query returned {len(rows)} rows")
+            
+            results = {}
+            for row in rows:
+                results[row['citation_id']] = float(row['like_percentage'])
+                logger.debug(
+                    f"📊 {row['citation_id']}: {row['like_percentage']:.1f}% "
+                    f"({row['like_count']}👍 / {row['dislike_count']}👎, n={row['total_feedback']})"
+                )
+            
+            logger.info(f"✅ Fetched feedback for {len(results)}/{len(citation_ids)} citations")
+            return results
+            
+        except Exception as e:
+            import traceback
+            logger.error(f"❌ Failed to get batch citation feedback: {e}")
+            logger.error(f"📋 Traceback:\n{traceback.format_exc()}")
+            return {}
+        finally:
+            if conn:
+                logger.debug(f"🔴 Closing standalone connection {id(conn)}")
+                await conn.close()
+                logger.debug(f"✅ Standalone connection closed")
+    
+    async def get_citation_feedback_percentage(
+        self,
+        citation_id: str,
+        domain: str
+    ) -> Optional[float]:
+        """
+        Get like percentage for a citation from materialized view (fast lookup).
+        
+        Args:
+            citation_id: Citation to look up
+            domain: Domain context
+            
+        Returns:
+            Like percentage (0-100) or None if no feedback exists
+            
+        Example:
+            >>> await postgres_client.get_citation_feedback_percentage("BRAND-v3.2", "marketing")
+            85.5  # 85.5% of users liked this citation
+        """
+        try:
+            async with self.get_connection() as conn:
+                row = await conn.fetchrow(
+                    """
+                    SELECT like_percentage, total_feedback, like_count, dislike_count
+                    FROM citation_stats
+                    WHERE citation_id = $1 AND domain = $2
+                    """,
+                    citation_id,
+                    domain
+                )
+                
+                if not row:
+                    return None
+                
+                logger.debug(
+                    f"📊 Citation feedback: {citation_id} -> {row['like_percentage']:.1f}% "
+                    f"({row['like_count']}👍 / {row['dislike_count']}👎, n={row['total_feedback']})"
+                )
+                
+                return float(row['like_percentage'])
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to get citation feedback percentage: {e}")
+            return None
     
     # ==================== Response Feedback ====================
     

@@ -2,6 +2,7 @@
 Django app configuration.
 """
 import logging
+import os
 from django.apps import AppConfig
 from django.conf import settings
 
@@ -29,28 +30,23 @@ class ApiConfig(AppConfig):
             from services.agent import QueryAgent
             from services.chat_service import ChatService
 
-            # Initialize Postgres connection pool (defer to first request if in event loop)
-            try:
-                import asyncio
-                # Check if event loop is already running (uvicorn/ASGI)
-                try:
-                    loop = asyncio.get_running_loop()
-                    # Event loop running - schedule initialization
-                    loop.create_task(postgres_client.initialize())
-                    logger.info("✅ Postgres initialization scheduled")
-                except RuntimeError:
-                    # No event loop - safe to use asyncio.run()
-                    asyncio.run(postgres_client.initialize())
-                    logger.info("✅ Postgres initialized")
-            except Exception as pg_error:
-                logger.warning(f"⚠️ Postgres initialization failed (feedback disabled): {pg_error}")
+            # PostgreSQL pool initialization - DEFER to first async request
+            # Cannot use asyncio.run() here because it creates/closes a separate event loop
+            # The pool must be initialized in the SAME event loop as the request handlers
+            logger.info("⏳ PostgreSQL pool will be initialized on first request (lazy init)")
 
             # Initialize repositories
             user_repo = FileUserRepository(data_dir=settings.USERS_DIR)
             conversation_repo = FileConversationRepository(data_dir=settings.SESSIONS_DIR)
 
-            # Initialize RAG client (Mock for development - has pre-loaded docs)
-            rag_client = MockQdrantClient()
+            # Initialize RAG client (QdrantRAGClient for production with feedback-weighted ranking)
+            from infrastructure.qdrant_rag_client import QdrantRAGClient
+            qdrant_host = os.getenv("QDRANT_HOST", "localhost")
+            qdrant_port = os.getenv("QDRANT_PORT", "6333")
+            rag_client = QdrantRAGClient(
+                qdrant_url=f"http://{qdrant_host}:{qdrant_port}",
+                collection_name="multi_domain_kb"
+            )
 
             # Initialize LLM from centralized factory
             llm = OpenAIClientFactory.get_llm(
