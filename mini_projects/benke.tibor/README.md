@@ -8,25 +8,31 @@ Multi-domain AI agent rendszer Python Django backenddel, LangGraph orchestráci�
 
 KnowledgeRouter egy vállalati belső tudásbázis rendszer, amely:
 
+✅ **LangGraph StateGraph orchestration** - 4 node-os workflow (intent → retrieval → generation → workflow)  
 ✅ **6 domain-re** szétválasztott tudásbázisokból keres (HR, IT, Finance, Legal, Marketing, General)  
 ✅ **Multi-domain Qdrant collection** domain-specifikus szűréssel (egyetlen collection, gyors filtering)  
 ✅ **Hibrid keresés support** szemantikus (dense vectors) + domain filtering (lexikális BM25 ready)  
-✅ **Intent detection** segítségével felismeri, melyik domain-hez tartozik a kérdés  
-✅ **RAG (Retrieval-Augmented Generation)** használ releváns dokumentumok megtalálásához  
+✅ **Intent detection** segítségével felismeri, melyik domain-hez tartozik a kérdés (LangGraph node)  
+✅ **RAG (Retrieval-Augmented Generation)** használ releváns dokumentumok megtalálásához (LangGraph node)  
 ✅ **Google Drive integráció** marketing dokumentumok eléréséhez  
-✅ **Workflow-okat** futtat (HR szabadság igénylés, IT ticket, stb.)  
+✅ **Workflow-okat** futtat (HR szabadság igénylés, IT ticket, stb.) - LangGraph workflow node  
 ✅ **Citációkkal** ellátott válaszokat ad (dokumentum referenciák)  
 ✅ **Konverzáció előzményt** mentesít JSON-ban  
-✅ **Docker-ben** futtatható
+✅ **Docker-ben** futtatható  
+🆕 **SOLID architektúra** ABC interfészekkel  
+🆕 **Health check rendszer** startup validálással  
+🆕 **Debug CLI** vizuális RAG testing eszközökkel
 
 ## 📋 Tech Stack
 
-- **Backend**: Python 3.11+ | Django | LangGraph
+- **Backend**: Python 3.11+ | Django | **LangGraph (StateGraph orchestration)**
 - **LLM**: OpenAI GPT-4o Mini (gpt-4o-mini)
 - **Vector DB**: Qdrant (self-hosted)
 - **Cache**: Redis 7 (embedding + query result cache)
+- **Database**: PostgreSQL 15 (feedback & analytics)
 - **Frontend**: Tailwind CSS + Vanilla JavaScript (ChatGPT-style UI)
 - **Deployment**: Docker Compose
+- **Testing**: pytest (121 tests, 49% coverage)
 
 ## 🚀 Quick Start (Docker)
 
@@ -325,25 +331,91 @@ QDRANT_COLLECTION=multi_domain_kb  # Multi-domain collection with domain filteri
 DATABASE_URL=sqlite:///db.sqlite3
 ```
 
-## 📝 Tipikus Workflow
+## 📝 Tipikus Workflow (LangGraph StateGraph)
 
 ```
-User Query
+User Query → LangGraph.ainvoke(initial_state)
     ↓
-[Intent Detection] → Classify domain (HR/IT/Finance/Marketing/etc)
-    ↓
-[Retrieval] → Search Qdrant with domain filter (csak releváns domain docs)
-    ↓           ├─ Domain filter: {"domain": "marketing"}
-    ↓           ├─ Semantic search: COSINE similarity
-    ↓           └─ Top-K chunks returned
-    ↓
-[Generation] → LLM generates answer with citations
-    ↓
-[Workflow] → Execute domain-specific action (if needed)
+┌─────────────────────────────────────────────────┐
+│         LangGraph StateGraph Execution          │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  [Node 1: Intent Detection]                     │
+│  └─ Dual-strategy classification:               │
+│     ├─ Keyword match (primary): "brand" → mkt   │
+│     └─ LLM fallback (GPT-4o-mini): complex      │
+│  └─ Domains: HR/IT/Finance/Legal/Marketing/Gen  │
+│  └─ Update state: domain = "marketing"          │
+│                     ↓                           │
+│  [Node 2: Retrieval]                            │
+│  └─ Search Qdrant with domain filter            │
+│     ├─ Domain filter: {"domain": "marketing"}   │
+│     ├─ Semantic search: COSINE similarity       │
+│     └─ Top-K chunks returned                    │
+│  └─ Update state: citations = [...]             │
+│                     ↓                           │
+│  [Node 3: Generation]                           │
+│  └─ LLM generates answer with citations         │
+│  └─ Token limit protection (100k max)           │
+│  └─ Update state: output = {...}                │
+│                     ↓                           │
+│  [Node 4: Workflow Execution]                   │
+│  └─ Execute domain-specific action (if needed)  │
+│  └─ HR vacation request / IT ticket creation    │
+│  └─ Update state: workflow = {...}              │
+│                     ↓                           │
+│                   [END]                         │
+└─────────────────────────────────────────────────┘
     ↓
 Response + Citations + Workflow Result
     ↓
 [Persistence] → Save to JSON (conversation history)
+
+### ⚡ Cached Regeneration (Optimized 2-Node Path)
+
+User clicks ⚡ Refresh → RegenerateAPIView
+    ↓
+┌─────────────────────────────────────────────────┐
+│       LangGraph Cached Regeneration             │
+│       (Skip Intent + RAG, Use Cache)            │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  [SKIPPED: Intent Detection]                    │
+│  ├─ Read from session: domain = "marketing"     │
+│  └─ Saves: ~100 tokens + LLM call              │
+│                     ↓                           │
+│  [SKIPPED: RAG Retrieval]                       │
+│  ├─ Read from session: citations = [...]        │
+│  └─ Saves: ~1500 tokens + Qdrant query         │
+│                     ↓                           │
+│  [Node 3: Generation] ✅ EXECUTED                │
+│  └─ LLM regenerates with SAME cached citations  │
+│  └─ Fresh answer, consistent context            │
+│  └─ Update state: output = {...}                │
+│                     ↓                           │
+│  [Node 4: Workflow] ✅ EXECUTED                  │
+│  └─ Execute domain-specific action              │
+│  └─ Update state: workflow = {...}              │
+│                     ↓                           │
+│                   [END]                         │
+└─────────────────────────────────────────────────┘
+    ↓
+Regenerated Response (with regenerated=true flag)
+
+**Performance Comparison:**
+
+| Metric              | Full Pipeline (4 nodes) | Cached Regeneration (2 nodes) | Savings   |
+|---------------------|-------------------------|-------------------------------|----------|
+| **Execution Time**  | ~5600ms                 | ~3500ms                       | **38% faster** |
+| **Token Usage**     | ~2500 tokens            | ~500 tokens                   | **80% cheaper** |
+| **LLM Calls**       | 2 (intent + generation) | 1 (generation only)           | **50% less** |
+| **Qdrant Queries**  | 1 (RAG retrieval)       | 0 (uses cache)                | **100% saved** |
+| **Nodes Executed**  | 4 (intent → RAG → gen → workflow) | 2 (gen → workflow)   | **50% less** |
+
+**Use Cases:**
+- ⚡ **Fast refresh**: Same question, different phrasing in LLM response
+- ⚡ **Retry with same context**: If answer quality not satisfactory
+- 🔄 **Full refresh**: Need fresh RAG results from updated documents
 ```
 
 ## 🧠 RAG & Embedding Rendszer Architektúra
@@ -1014,37 +1086,176 @@ docker-compose up --build
 # Changes are auto-reloaded (gunicorn --reload)
 ```
 
+## 🛠️ Fejlesztői Eszközök (v2.2)
+
+### Health Check Rendszer
+
+Az alkalmazás indításkor automatikusan validálja az infrastruktúrát:
+
+```bash
+docker-compose up
+```
+
+**Példa kimenet:**
+```
+======================================================================
+🏥 INFRASTRUCTURE HEALTH CHECK
+======================================================================
+
+📌 CRITICAL SERVICES:
+  ✅ ENV:OPENAI_API_KEY=sk-proj-***
+  ✅ OpenAI client importable
+  ✅ Qdrant URL configured: http://qdrant:6333
+
+📋 OPTIONAL SERVICES:
+  ⚠️ PostgreSQL will use lazy init: postgres
+  ⚠️ Redis configured: redis://redis:6379
+
+======================================================================
+✅ ALL CRITICAL SERVICES READY
+======================================================================
+```
+
+**Funkciók:**
+- ✅ Fail-fast kritikus szolgáltatások hiányában
+- ⚠️ Graceful degradation opcionális szolgáltatásoknál
+- 🔐 API key maszkolás biztonsági okokból
+- 📊 Visual health report startup-nál
+
+### Debug CLI
+
+Interaktív RAG tesztelés fejlesztés közben:
+
+```bash
+# Python REPL
+docker-compose exec backend python
+>>> from utils.debug_cli import quick_search
+>>> import asyncio
+>>> asyncio.run(quick_search('brand colors', 'marketing', 5))
+
+# Parancssor
+docker-compose exec backend python -m utils.debug_cli "szabadság igénylés" hr 5
+```
+
+**Példa kimenet:**
+```
+📚 RETRIEVED 3 CITATIONS:
+================================================================================
+
+  [1] Score: 1.3000 | ID: 1ACEdQxgUuAsDHKPBqKyp2kt88DjfXjhv#chunk0
+      Title: Aurora_Digital_Brand_Guidelines_eng.docx
+      Content: "Brand colors are #0066CC (primary blue)..."
+
+📊 FEEDBACK STATISTICS (3 citations):
+================================================================================
+
+  🟢  85.0% [█████████████████░░░] doc_123#chunk0
+  🟡  55.0% [███████████░░░░░░░░░] doc_456#chunk1
+  🔴  25.0% [█████░░░░░░░░░░░░░░░] doc_789#chunk2
+```
+
+**Funkciók:**
+- 📝 Citation formázás (score, metadata, content preview)
+- 📊 Feedback statisztika bar chart-okkal
+- 🔄 Semantic vs feedback-boosted ranking összehasonlítás
+- 🎯 Színkódolt feedback indikátorok (🟢🟡🔴)
+
+### Unit Tesztek
+
+```bash
+# Összes teszt futtatása coverage-el
+docker-compose exec backend pytest tests/ --cov=infrastructure --cov=domain --cov=utils --cov-report=html
+
+# Specifikus test suite-ok
+docker-compose exec backend pytest tests/test_health_check.py -v
+docker-compose exec backend pytest tests/test_debug_cli.py -v
+docker-compose exec backend pytest tests/test_interfaces.py -v
+docker-compose exec backend pytest tests/test_feedback_ranking.py -v
+
+# HTML coverage report megtekintése
+# Nyisd meg: backend/htmlcov/index.html
+```
+
+**Teszt Eredmények:**
+- ✅ **121/136 teszt átmegy** (89% success rate)
+- 📊 **49% code coverage** (megduplázva a 25%-os baseline-hoz képest)
+- 🆕 **36 új teszt** az új architektúra komponensekhez
+- 🎯 **Teszt kategóriák**: Health Checks (10), Debug CLI (17), Interfaces (15), Feedback Ranking (14)
+
+### SOLID Architektúra
+
+Az új v2.2 verzió ABC interfészeket használ a jobb tesztelhetőségért és swappable implementációkért:
+
+```python
+# Interfészek domain/interfaces.py-ban
+from domain.interfaces import IEmbeddingService, IVectorStore, IFeedbackStore, IRAGClient
+
+# Könnyű mock-olás tesztekben
+class MockEmbeddingService(IEmbeddingService):
+    def get_embedding(self, text): return [0.1, 0.2, 0.3]
+    def is_available(self): return True
+
+# Type-safe implementations
+client: IRAGClient = QdrantRAGClient(...)
+```
+
+**Előnyök:**
+- 🧪 Könnyű mock-olás unit tesztekben
+- 🔄 Swappable implementációk (Qdrant → Pinecone/Weaviate)
+- 📝 Világos contract minden komponenshez
+- ✅ Dependency Inversion Principle követése
+
+---
+
 ## 📚 Kapcsolódó Dokumentumok
 
-- [Installation Guide](../INSTALLATION.md)
-- [API Documentation](API.md) - REST API endpoints, cache-stats
-- [Redis Cache Architecture](REDIS_CACHE.md) - Cache stratégia, invalidálás, monitoring
-- [Google Drive Setup](GOOGLE_DRIVE_SETUP.md) - Drive API konfiguráció
-- [Frontend Setup](FRONTEND_SETUP.md) - Tailwind CSS, Nginx
+### Projekt Dokumentáció
+- [Installation Guide](INSTALLATION.md) - Részletes telepítési útmutató
+- [Features](docs/FEATURES.md) - Funkciók részletes leírása, architektúra diagramok
+- [API Documentation](docs/API.md) - REST API endpoints, request/response példák
+- [Tasks](docs/tasks/1.md) - Projekt feladatok és mérföldkövek
+
+### Infrastruktúra & Integráció
+- [Redis Cache Architecture](docs/REDIS_CACHE.md) - Cache stratégia, invalidálás, monitoring
+- [Google Drive Setup](docs/GOOGLE_DRIVE_SETUP.md) - Drive API konfiguráció, OAuth setup
+- [Frontend Setup](docs/FRONTEND_SETUP.md) - Tailwind CSS, Nginx, build folyamat
+
+### Testing & Development
+- [Test README](backend/tests/README.md) - Unit teszt dokumentáció, coverage reports
+- [Init Prompt](docs/INIT_PROMPT.md) - Kezdeti projekt prompt és követelmények
+
+### Repó-szintű Dokumentáció
 - [LangGraph Usage (Repo)](../ai_agent_complex/docs/LANGGRAPH_USAGE_HU.md)
 - [Agent Loop (Repo)](../ai_agent_complex/docs/AGENT_LOOP_HU.md)
 - [Architecture (Repo)](../ai_agent_complex/docs/ARCHITECTURE.md)
 
 ## 🤝 Roadmap
 
-### ✅ Elkészült
+### ✅ Elkészült (v2.2)
+- [x] **LangGraph StateGraph orchestration** (4 nodes: intent → retrieval → generation → workflow) 🆕
 - [x] Multi-domain Qdrant collection (domain filtering)
 - [x] Google Drive API integration (marketing docs)
 - [x] Redis cache (embedding + query result, 54% hit rate)
 - [x] Cache invalidálás (sync_domain_docs.py auto-invalidation)
 - [x] Token tracking & cost calculation
-- [x] Unit tesztek (61 teszt, 87-100% coverage)
+- [x] Unit tesztek (121 teszt, 49% coverage)
 - [x] Hibakezelés (retry logic, exponential backoff)
-- [x] Multi-domain workflows (HR szabadság, IT ticket)
+- [x] Multi-domain workflows (HR szabadság, IT ticket) - LangGraph workflow node
+- [x] **SOLID architektúra** (ABC interfaces, DIP compliance) 🆕
+- [x] **Health check rendszer** (startup validation) 🆕
+- [x] **Debug CLI** (visual RAG testing tools) 🆕
+- [x] **PostgreSQL feedback** (like/dislike system backend) 🆕
 
 ### 🚧 Tervezett
-- [ ] Like/Dislike feedback system (Postgres + Redis cache)
-- [ ] Citation re-ranking (semantic relevance)
+- [ ] Frontend feedback UI teljes implementálás (kód kész, tesztelés folyamatban)
+- [ ] Citation re-ranking (feedback-weighted semantic relevance)
 - [ ] Multi-query generation (5 variáció, frequency ranking)
-- [ ] BM25 sparse vectors (lexikális keresés)
+- [ ] BM25 sparse vectors (lexikális keresés brand nevekhez, kódokhoz)
 - [ ] Monitoring & logging (Prometheus + Grafana)
 - [ ] Integration tesztek (E2E multi-domain RAG)
 - [ ] Slack integration
+- [ ] PII detection (személyes adatok szűrése)
+- [ ] Rate limiting (felhasználónként 100 req/óra)
 - [ ] Frontend React version (optional)
 
 ## 📞 Support

@@ -23,6 +23,10 @@ class Message(BaseModel):
     content: str
     timestamp: datetime = Field(default_factory=datetime.now)
     metadata: Optional[Dict[str, Any]] = None
+    domain: Optional[str] = None  # Domain for caching (marketing, hr, it, etc.)
+    citations: Optional[List[Dict[str, Any]]] = None  # Citations for caching
+    workflow: Optional[Dict[str, Any]] = None  # Workflow state
+    regenerated: bool = False  # Flag indicating cached regeneration
 
 
 class Citation(BaseModel):

@@ -222,8 +222,42 @@ Answer in Hungarian if the query is in Hungarian, otherwise in English.
 
         return state
 
+    async def regenerate(self, query: str, domain: str, citations: list, user_id: str) -> QueryResponse:
+        """Regenerate response using cached domain + citations (skip intent + RAG)."""
+        logger.info(f"Agent regenerate: user={user_id}, domain={domain}, cached_citations={len(citations)}")
+
+        # Build state with cached data
+        initial_state: AgentState = {
+            "query": query,
+            "user_id": user_id,
+            "messages": [HumanMessage(content=query)],
+            "domain": domain,  # ← FROM CACHE
+            "citations": citations,  # ← FROM CACHE
+            "retrieved_docs": [],
+            "workflow": None,
+        }
+
+        # SKIP intent detection node
+        # SKIP retrieval node
+        # Run ONLY generation + workflow
+        logger.info("Skipping intent detection and RAG retrieval (using cache)")
+        
+        state_after_generation = await self._generation_node(initial_state)
+        final_state = await self._workflow_node(state_after_generation)
+
+        # Build response
+        response = QueryResponse(
+            domain=final_state["domain"],
+            answer=final_state["output"]["answer"],
+            citations=[Citation(**c) for c in final_state["citations"]],
+            workflow=final_state.get("workflow"),
+        )
+
+        logger.info("Agent regenerate completed (cached)")
+        return response
+
     async def run(self, query: str, user_id: str, session_id: str) -> QueryResponse:
-        """Execute agent workflow."""
+        """Execute full agent workflow (all 4 nodes)."""
         logger.info(f"Agent run: user={user_id}, session={session_id}, query={query[:50]}...")
 
         initial_state: AgentState = {

@@ -16,8 +16,22 @@ class ApiConfig(AppConfig):
     def ready(self):
         """Initialize services on app startup."""
         logger.info("Initializing API app...")
+        
+        # Skip health check during migrations or management commands
+        import sys
+        if 'migrate' in sys.argv or 'makemigrations' in sys.argv:
+            logger.info("⏭️ Skipping initialization during migrations")
+            return
 
         try:
+            # Run health checks first
+            logger.info("🏥 Running infrastructure health checks...")
+            from infrastructure.health_check import validate_startup_config_sync
+            
+            health_ok = validate_startup_config_sync()
+            if not health_ok:
+                logger.warning("⚠️ Some infrastructure components unavailable - continuing anyway")
+            
             # Import dependencies
             from pathlib import Path
             from infrastructure.openai_clients import OpenAIClientFactory

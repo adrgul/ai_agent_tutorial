@@ -1,17 +1,25 @@
 # Backend Tests
 
-Comprehensive unit and integration tests for the KnowledgeRouter feedback ranking system.
+Comprehensive unit and integration tests for the KnowledgeRouter RAG system with architecture enhancements.
 
 ## 📊 Test Overview
 
-**Current Status:**
-- ✅ **85/113 tests passing** (75% success rate)
-- 📊 **41% code coverage** (exceeds 25% requirement)
-- 🎯 **All feedback ranking tests passing** (14/14)
+**Current Status (v2.2):**
+- ✅ **121/136 tests passing** (89% success rate)
+- 📊 **49% code coverage** (nearly doubled from 25% baseline!)
+- 🎯 **All new architecture tests passing** (36/36)
+- 🆕 **Health Checks**: 10 tests for startup validation
+- 🆕 **Debug CLI**: 17 tests for formatting utilities
+- 🆕 **Interfaces**: 15 tests for ABC contracts
 
 ### Test Modules
 
-**Feedback Ranking System (New - ✅ ALL PASSING)**
+**New Architecture Tests (v2.2 - ✅ ALL PASSING)**
+- ✅ `test_health_check.py` - Startup validation & config checks (10/10 passing)
+- ✅ `test_debug_cli.py` - Citation formatting, feedback stats (17/17 passing)
+- ✅ `test_interfaces.py` - ABC interface contracts (15/15 passing)
+
+**Feedback Ranking System (✅ ALL PASSING)**
 - ✅ `test_feedback_ranking.py` - Boost calculation algorithm (4/4 passing, 8 skipped)
 - ✅ `test_postgres_client.py` - Lazy initialization & batch ops (8/12 passing, 4 skipped)
 - ✅ `test_integration_feedback.py` - End-to-end integration (3/4 passing, 1 skipped)

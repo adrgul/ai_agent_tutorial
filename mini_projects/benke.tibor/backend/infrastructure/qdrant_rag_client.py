@@ -352,3 +352,69 @@ class QdrantRAGClient(IRAGClient):
         docs = mock_kb.get(domain, [])
         logger.info(f"Retrieved {len(docs[:top_k])} mock docs for domain={domain.value}")
         return docs[:top_k]
+    
+    async def retrieve(
+        self, 
+        query: str, 
+        domain: str, 
+        top_k: int = 5, 
+        apply_feedback_boost: bool = True
+    ) -> List[Citation]:
+        """
+        Retrieve relevant documents with optional feedback boosting.
+        
+        This is the main interface method that combines semantic search
+        with user feedback re-ranking.
+        
+        Args:
+            query: User query
+            domain: Domain to filter (hr, it, finance, marketing, etc.)
+            top_k: Number of results to return
+            apply_feedback_boost: Whether to apply feedback-based boosting
+            
+        Returns:
+            List of citations, optionally re-ranked by feedback
+        """
+        # First get semantic search results
+        citations = await self.retrieve_for_domain(domain, query, top_k)
+        
+        if not apply_feedback_boost or not citations:
+            return citations
+        
+        # Apply feedback boosting
+        try:
+            citation_ids = [c.doc_id for c in citations]
+            feedback_map = await postgres_client.get_citation_feedback_batch(
+                citation_ids=citation_ids,
+                domain=domain
+            )
+            
+            # Recalculate scores with feedback boost
+            for citation in citations:
+                feedback_pct = feedback_map.get(citation.doc_id)
+                boost = calculate_feedback_boost(feedback_pct)
+                citation.score = citation.score * (1 + boost)
+            
+            # Re-sort by boosted scores
+            citations.sort(key=lambda x: x.score, reverse=True)
+            
+            logger.info(f"Applied feedback boost to {len(citations)} citations")
+        except Exception as e:
+            logger.warning(f"Feedback boost failed, returning original results: {e}")
+        
+        return citations
+    
+    def is_available(self) -> bool:
+        """
+        Check if Qdrant client is available.
+        
+        Returns:
+            True if Qdrant is reachable, False otherwise
+        """
+        try:
+            # Try to get collection info
+            self.qdrant_client.get_collection(self.collection_name)
+            return True
+        except Exception as e:
+            logger.warning(f"Qdrant not available: {e}")
+            return False

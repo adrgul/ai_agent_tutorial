@@ -1,8 +1,12 @@
 # KnowledgeRouter API Documentation
 
-**Version:** 2.1  
+**Version:** 2.2  
 **Base URL:** `http://localhost:8001/api/`  
-**Content-Type:** `application/json`
+**Content-Type:** `application/json`  
+**Orchestration:** LangGraph StateGraph (4 nodes)
+
+> **Note:** Minden `/api/query/` hívás egy teljes LangGraph workflow-n megy keresztül:
+> Intent Detection → Retrieval (RAG) → Generation (LLM) → Workflow Execution
 
 ---
 
@@ -70,9 +74,19 @@ Jelenleg nincs authentication (development mode). Production környezetben aján
 
 ### POST `/api/query/`
 
-**Multi-domain RAG query feldolgozás LangGraph agent orchestrációval.**
+**Multi-domain RAG query feldolgozás LangGraph StateGraph orchestrációval.**
 
-Feldolgoz egy felhasználói kérdést, detektálja a domain-t (HR, IT, Finance, Marketing, Legal, General), releváns dokumentumokat keres Qdrant-ból domain-specifikus szűréssel, és GPT-4o-mini segítségével generál választ.
+Feldolgoz egy felhasználói kérdést **LangGraph StateGraph** segítségével, amely 4 node-on keresztül vezérli a folyamatot:
+
+1. **Intent Detection Node** - Domain klasszifikáció (keyword match + LLM fallback)
+2. **Retrieval Node** - Domain-specifikus RAG keresés Qdrant-ban
+3. **Generation Node** - LLM válasz generálás (GPT-4o-mini)
+4. **Workflow Execution Node** - Domain-specifikus workflow triggering (HR/IT)
+
+**Domain Detection Stratégia:**
+- **Keyword-alapú**: Gyors, költségmentes pre-classification (pl. "brand" → marketing)
+- **LLM-alapú**: Fallback komplex querykhez (pl. "VPN problem" → it)
+- **Supported Domains**: HR, IT, Finance, Legal, Marketing, General
 
 #### Request
 
@@ -186,6 +200,42 @@ Content-Type: application/json
 }
 ```
 
+#### LangGraph Execution Flow
+
+```
+User Query: "Mi a brand guideline sorhossz?"
+    ↓
+[LangGraph StateGraph Execution]
+    ↓
+[Node 1: Intent Detection]
+├─ Keyword match: "brand" → domain = "marketing"
+└─ state["domain"] = "marketing" ✅
+    ↓
+[Node 2: Retrieval]
+├─ Read: state["domain"] = "marketing"
+├─ Qdrant filter: {"domain": "marketing"}
+├─ Semantic search: top_k=5
+└─ state["citations"] = [marketing_docs] ✅
+    ↓
+[Node 3: Generation]
+├─ Read: state["citations"]
+├─ Build context from marketing docs
+├─ LLM prompt + generation (GPT-4o-mini)
+└─ state["output"] = {answer, citations} ✅
+    ↓
+[Node 4: Workflow]
+├─ Read: state["domain"] = "marketing"
+├─ No workflow for marketing queries
+└─ state["workflow"] = null
+    ↓
+[Response] → {domain, answer, citations, workflow}
+```
+
+**State Management:**
+- AgentState TypedDict carries data between nodes
+- Each node reads/writes to shared state
+- No manual state passing required (LangGraph orchestration)
+
 #### Example Usage
 
 **cURL:**
@@ -235,6 +285,200 @@ $response = Invoke-WebRequest `
 $data = ($response.Content | ConvertFrom-Json).data
 Write-Host "Domain: $($data.domain)"
 Write-Host "Answer: $($data.answer)"
+```
+
+---
+
+### POST `/api/regenerate/` **NEW**
+
+**⚡ Cached regeneration - Gyors válasz újragenerálás RAG nélkül.**
+
+Újragenerálja a választ **ugyanazzal a RAG kontextussal** (domain + citations) mint az előző query, de új LLM generálással. Kihagyja az intent detection és RAG retrieval node-okat, csak a generation + workflow node-okat futtatja.
+
+**Use Cases:**
+- 🔄 Refresh answer: Ugyanaz a kérdés, más megfogalmazással
+- 🎯 Retry generation: Válasz minőség javítása
+- 💰 Cost savings: 80% olcsóbb mint full pipeline
+- ⚡ Speed: 38% gyorsabb (~3500ms vs ~5600ms)
+
+#### Request
+
+**Headers:**
+```
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "session_id": "string",
+  "query": "string",
+  "user_id": "string"
+}
+```
+
+**Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `session_id` | string | Yes | Session ID (kell legyen előző bot message) |
+| `query` | string | Yes | Újragenerálandó kérdés |
+| `user_id` | string | Yes | Felhasználó azonosítója |
+
+**Constraints:**
+- Session-ben kell lennie minimum 1 bot message-nek
+- Bot message-ben kell lennie `domain` és `citations` mezőknek
+
+#### Response
+
+**Success (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "domain": "marketing",
+    "answer": "Regenerált válasz: A brand guideline sorhosszra...",
+    "citations": [
+      {
+        "doc_id": "1ACEdQxgUuAsDHKPBqKyp2kt88DjfXjhv#chunk2",
+        "title": "Aurora_Digital_Brand_Guidelines_eng.docx",
+        "score": 0.89,
+        "content": "Maximális sorhossz: 70–80 karakter..."
+      }
+    ],
+    "workflow": null,
+    "regenerated": true,
+    "cache_info": {
+      "skipped_nodes": ["intent_detection", "retrieval"],
+      "executed_nodes": ["generation", "workflow"],
+      "cached_citations_count": 5,
+      "cached_domain": "marketing"
+    }
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `regenerated` | boolean | Mindig `true` - jelzi, hogy cached regeneration |
+| `cache_info` | object | Metadata a cache használatról |
+| `cache_info.skipped_nodes` | array | Kihagyott node-ok (intent, retrieval) |
+| `cache_info.executed_nodes` | array | Futtatott node-ok (generation, workflow) |
+| `cache_info.cached_citations_count` | int | Cache-elt citations száma |
+
+#### LangGraph Execution Flow (Cached)
+
+```
+User clicks ⚡ Refresh → POST /api/regenerate/
+    ↓
+[Read Session History]
+├─ Last bot message extraction
+├─ domain = "marketing" (FROM CACHE)
+└─ citations = [...] (FROM CACHE)
+    ↓
+[LangGraph Partial Execution]
+    ↓
+[SKIP: Intent Detection] ❌
+├─ Savings: ~100 tokens + LLM call
+└─ Use cached domain = "marketing"
+    ↓
+[SKIP: RAG Retrieval] ❌
+├─ Savings: ~1500 tokens + Qdrant query
+└─ Use cached citations = [...]
+    ↓
+[Node 3: Generation] ✅ EXECUTED
+├─ Read: cached citations
+├─ Build context (SAME as before)
+├─ LLM regenerates answer (FRESH)
+└─ state["output"] = {new_answer, same_citations}
+    ↓
+[Node 4: Workflow] ✅ EXECUTED
+├─ Read: cached domain
+└─ Execute workflow (if applicable)
+    ↓
+[Response] → {regenerated: true, cache_info}
+```
+
+**Performance Comparison:**
+
+| Metric | Full Pipeline | Cached Regeneration | Savings |
+|--------|--------------|---------------------|---------|
+| **Time** | ~5600ms | ~3500ms | **38% faster** |
+| **Tokens** | ~2500 | ~500 | **80% cheaper** |
+| **LLM Calls** | 2 | 1 | **50% less** |
+| **Qdrant** | 1 query | 0 queries | **100% saved** |
+| **Nodes** | 4 | 2 | **50% skipped** |
+
+#### Example Usage
+
+**cURL:**
+```bash
+curl -X POST http://localhost:8001/api/regenerate/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "session_12345",
+    "query": "Mi a brand guideline sorhossz?",
+    "user_id": "emp_001"
+  }'
+```
+
+**Python:**
+```python
+response = requests.post(
+    "http://localhost:8001/api/regenerate/",
+    json={
+        "session_id": "session_12345",
+        "query": "Mi a brand guideline sorhossz?",
+        "user_id": "emp_001"
+    }
+)
+
+data = response.json()["data"]
+print(f"Regenerated: {data['regenerated']}")  # True
+print(f"Skipped nodes: {data['cache_info']['skipped_nodes']}")
+print(f"Savings: {data['cache_info']['cached_citations_count']} citations reused")
+```
+
+**PowerShell:**
+```powershell
+$body = @{
+    session_id = "session_12345"
+    query = "Mi a brand guideline sorhossz?"
+    user_id = "emp_001"
+} | ConvertTo-Json
+
+$response = Invoke-WebRequest `
+  -Uri "http://localhost:8001/api/regenerate/" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $body
+
+$data = ($response.Content | ConvertFrom-Json).data
+Write-Host "⚡ Regenerated: $($data.regenerated)"
+Write-Host "Cached citations: $($data.cache_info.cached_citations_count)"
+```
+
+**Error Responses:**
+
+**400 Bad Request (No bot messages in session):**
+```json
+{
+  "success": false,
+  "error": "No previous bot messages found in session",
+  "code": "NO_CACHE_AVAILABLE"
+}
+```
+
+**404 Not Found (Session doesn't exist):**
+```json
+{
+  "success": false,
+  "error": "Session not found",
+  "code": "SESSION_NOT_FOUND"
+}
 ```
 
 ---

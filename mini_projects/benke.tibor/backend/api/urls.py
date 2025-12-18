@@ -12,10 +12,12 @@ from api.views import (
     CacheStatsAPIView,
     CitationFeedbackAPIView,
     FeedbackStatsAPIView,
+    RegenerateAPIView,
 )
 
 urlpatterns = [
     path('query/', QueryAPIView.as_view(), name='query'),
+    path('regenerate/', RegenerateAPIView.as_view(), name='regenerate'),
     path('sessions/<str:session_id>/', SessionHistoryAPIView.as_view(), name='session_history'),
     path('reset-context/', ResetContextAPIView.as_view(), name='reset_context'),
     path('google-drive/files/', GoogleDriveFilesAPIView.as_view(), name='google_drive_files'),

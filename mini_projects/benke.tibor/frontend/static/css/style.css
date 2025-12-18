@@ -325,11 +325,16 @@ main {
             font-style: italic;
         }
         
-        /* Refresh button */
-        .refresh-btn {
+        /* Refresh buttons container */
+        .refresh-buttons {
             position: absolute;
             top: 0.5rem;
             right: 0.5rem;
+            display: flex;
+            gap: 0.25rem;
+        }
+        
+        .refresh-btn {
             background: #3d3d3d;
             border: 1px solid #4d4d4d;
             color: #ececf1;
@@ -345,6 +350,18 @@ main {
             opacity: 1;
             background: #4d4d4d;
             transform: scale(1.05);
+        }
+        
+        /* Fast refresh (cached) - green accent */
+        .refresh-fast:hover {
+            background: #2d5a2d;
+            border-color: #3d7a3d;
+        }
+        
+        /* Full refresh (RAG) - blue accent */
+        .refresh-full:hover {
+            background: #2d3d5a;
+            border-color: #3d4d7a;
         }
         
         /* Citations container - clean design */

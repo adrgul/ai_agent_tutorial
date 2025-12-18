@@ -52,9 +52,15 @@ function addMessage(content, type = 'info', citations = null, originalQuery = nu
 
     let html = `<div class="message-content">`;
     
-    // Add refresh button for bot messages (top-right corner)
+    // Add dual refresh buttons for bot messages (top-right corner)
     if (type === 'bot' && originalQuery) {
-        html += `<button class="refresh-btn" title="Frissítés" onclick="refreshQuery('${escapeHtml(originalQuery).replace(/'/g, "\\'")}')">🔄</button>`;
+        const escapedQuery = escapeHtml(originalQuery).replace(/'/g, "\\'");
+        html += `
+            <div class="refresh-buttons">
+                <button class="refresh-btn refresh-fast" title="⚡ Gyors újragenerálás (cache)" onclick="refreshQuery('${escapedQuery}', true)">⚡</button>
+                <button class="refresh-btn refresh-full" title="🔄 Teljes újrakeresés (RAG)" onclick="refreshQuery('${escapedQuery}', false)">🔄</button>
+            </div>
+        `;
     }
     
     html += formatMessage(content);
@@ -168,9 +174,105 @@ function askQuestion(question) {
     queryForm.dispatchEvent(new Event('submit'));
 }
 
-function refreshQuery(question) {
-    queryInput.value = question;
-    queryForm.dispatchEvent(new Event('submit'));
+async function refreshQuery(question, useCache = true) {
+    const userId = userIdInput.value.trim() || 'demo_user';
+    const sessionId = sessionIdInput.value.trim() || 'demo_session';
+    
+    showTyping();
+    sendBtn.disabled = true;
+    
+    try {
+        let endpoint, body;
+        
+        if (useCache) {
+            // Cached regeneration (FAST ⚡ - skips intent + RAG)
+            endpoint = 'http://localhost:8001/api/regenerate/';
+            body = {
+                session_id: sessionId,
+                query: question,
+                user_id: userId
+            };
+        } else {
+            // Full re-execution (SLOW 🔄 - full 4-node pipeline)
+            endpoint = 'http://localhost:8001/api/query/';
+            body = {
+                user_id: userId,
+                session_id: sessionId,
+                query: question,
+                organisation: 'Demo Org'
+            };
+        }
+        
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            hideTyping();
+            addMessage(`❌ Újragenerálás hiba: ${error.error || 'Ismeretlen hiba'}`, 'error');
+            return;
+        }
+        
+        const raw = await response.json();
+        const payload = raw.data ?? raw;
+        
+        // Extract citations
+        const citations = payload.citations ? 
+            [...new Set(payload.citations
+                .map(c => c.title || c.source || null)
+                .filter(s => s && s !== 'Unknown' && s !== 'Unknown Document')
+            )] 
+            : [];
+        
+        // Update debug panel
+        debugSession.textContent = sessionId;
+        debugDomain.textContent = payload.domain || 'general';
+        
+        if (payload.citations && payload.citations.length > 0) {
+            const avgScore = (payload.citations.reduce((sum, c) => sum + (c.score || 0), 0) / payload.citations.length).toFixed(3);
+            debugCitations.textContent = `${payload.citations.length} (avg: ${avgScore})`;
+        } else {
+            debugCitations.textContent = '0';
+        }
+        
+        if (payload.workflow) {
+            const action = payload.workflow.action || 'none';
+            const status = payload.workflow.status || '';
+            debugWorkflow.textContent = status ? `${action} (${status})` : action;
+            debugNextStep.textContent = payload.workflow.next_step || payload.workflow.type || '-';
+        } else {
+            debugWorkflow.textContent = 'none';
+            debugNextStep.textContent = '-';
+        }
+        
+        hideTyping();
+        
+        // Add regeneration badge
+        let answerText = payload.answer || 'Sajnos nem tudtam válaszolni.';
+        if (payload.regenerated) {
+            answerText = `⚡ **Gyors újragenerálás** (cached context)\n\n${answerText}`;
+        }
+        
+        addMessage(
+            answerText,
+            'bot',
+            citations,
+            question,
+            payload.citations,
+            payload.domain,
+            sessionId
+        );
+        
+    } catch (error) {
+        console.error('Refresh error:', error);
+        hideTyping();
+        addMessage('❌ Hálózati hiba az újragenerálás során.', 'error');
+    } finally {
+        sendBtn.disabled = false;
+    }
 }
 
 queryForm.addEventListener('submit', async (e) => {
