@@ -583,3 +583,36 @@ if (queryInput) {
 }
 if (debugWorkflow) debugWorkflow.textContent = 'none';
 if (debugNextStep) debugNextStep.textContent = '-';
+
+// Debug panel toggle functionality
+const debugToggle = document.getElementById('debugToggle');
+const debugContent = document.getElementById('debugContent');
+const debugPanel = document.getElementById('debugPanel');
+
+if (debugToggle && debugContent && debugPanel) {
+    // Load saved state from localStorage
+    const isMinimized = localStorage.getItem('debugPanelMinimized') === 'true';
+    if (isMinimized) {
+        debugContent.classList.add('hidden');
+        debugPanel.classList.add('minimized');
+        debugToggle.textContent = '+';
+    }
+    
+    debugToggle.addEventListener('click', () => {
+        const isCurrentlyMinimized = debugContent.classList.contains('hidden');
+        
+        if (isCurrentlyMinimized) {
+            // Expand
+            debugContent.classList.remove('hidden');
+            debugPanel.classList.remove('minimized');
+            debugToggle.textContent = '−';
+            localStorage.setItem('debugPanelMinimized', 'false');
+        } else {
+            // Minimize
+            debugContent.classList.add('hidden');
+            debugPanel.classList.add('minimized');
+            debugToggle.textContent = '+';
+            localStorage.setItem('debugPanelMinimized', 'true');
+        }
+    });
+}

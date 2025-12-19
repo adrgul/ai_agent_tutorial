@@ -681,11 +681,57 @@ main {
             overflow-y: auto;
             z-index: 10;
             box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+            transition: all 0.3s ease;
+        }
+        
+        .debug-info-panel.minimized {
+            width: auto;
+            max-height: none;
+            overflow: visible;
+            padding: 0.75rem 1rem;
+        }
+        
+        .debug-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.35rem;
+        }
+        
+        .debug-toggle-btn {
+            background: transparent;
+            border: 1px solid #3d3d3d;
+            color: #10a37f;
+            font-size: 1.2rem;
+            font-weight: bold;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            line-height: 1;
+        }
+        
+        .debug-toggle-btn:hover {
+            background: #2a2a2a;
+            border-color: #10a37f;
+        }
+        
+        .debug-content {
+            display: block;
+        }
+        
+        .debug-content.hidden {
+            display: none;
         }
         
         .debug-info-panel h4 {
             color: #10a37f;
-            margin-bottom: 0.35rem;
+            margin: 0;
             font-size: 0.9rem;
         }
         
