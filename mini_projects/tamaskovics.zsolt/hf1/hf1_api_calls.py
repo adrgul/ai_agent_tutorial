@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 HF1 - 2 db API hívás:
-1) Public API: WorldTimeAPI (3rd-party timestamp)
+1) Public API: GitHub Public API (Date header).
 2) OpenAI API: Responses API (szöveg generálás a timestamp + user input alapján)
 
 Futtatás példa:
@@ -15,23 +15,63 @@ import argparse
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any, Dict
 
 import requests
+from dotenv import load_dotenv
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+from email.utils import parsedate_to_datetime
+
+load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 
 
-WORLD_TIME_URL = "https://worldtimeapi.org/api/timezone/{tz}"
+
+PUBLIC_TIME_URL = "https://api.github.com/rate_limit"
 
 
-def fetch_third_party_timestamp(timezone: str, timeout_s: int = 10) -> Dict[str, Any]:
+def fetch_third_party_timestamp(timezone_name: str, timeout_s: int = 10) -> Dict[str, Any]:
     """
-    3rd-party timestamp (nem kriptográfiai időbélyeg, csak demonstráció HF1-hez).
-    WorldTimeAPI JSON válaszát visszaadja (datetime, unixtime, utc_offset, ...).
+    3rd-party timestamp (demo HF1-hez).
+    Source: GitHub Public API (Date header).
     """
-    url = WORLD_TIME_URL.format(tz=timezone)
-    r = requests.get(url, timeout=timeout_s)
+    r = requests.get(
+        PUBLIC_TIME_URL,
+        timeout=timeout_s,
+        headers={
+            "User-Agent": "hf1/1.0",
+            "Accept": "application/vnd.github+json",
+        },
+    )
     r.raise_for_status()
-    return r.json()
+
+    date_hdr = r.headers.get("Date")
+    if not date_hdr:
+        raise RuntimeError("GitHub válaszban nincs Date header")
+
+    dt_utc = parsedate_to_datetime(date_hdr).astimezone(timezone.utc)
+    tz = ZoneInfo(timezone_name)
+    dt_local = dt_utc.astimezone(tz)
+
+    offset = dt_local.strftime("%z")          # +0100
+    offset = offset[:3] + ":" + offset[3:]    # +01:00
+
+    data = r.json()
+
+    return {
+        "source": "github_api_date_header",
+        "datetime": dt_local.isoformat(),
+        "timezone": timezone_name,
+        "utc_offset": offset,
+        "unixtime": int(dt_utc.timestamp()),
+        "raw": {
+            "date_header": date_hdr,
+            "github_rate_limit": data.get("rate"),
+        },
+    }
+
+
 
 
 def call_openai_responses(model: str, input_text: str) -> str:
@@ -45,10 +85,8 @@ def call_openai_responses(model: str, input_text: str) -> str:
     resp = client.responses.create(
         model=model,
         input=input_text,
-        # HF1: legyen rövid, gyors.
-        reasoning={"effort": "none"},
-        verbosity="low",
     )
+
 
     # Stabil, ha elérhető:
     out_text = getattr(resp, "output_text", None)
@@ -79,7 +117,7 @@ def build_openai_prompt(ts: Dict[str, Any], note: str) -> str:
 
     return (
         "Írj egyetlen rövid, magyar nyelvű sort, ami egy '3rd-party időbélyeg' nyilatkozat.\n"
-        "Formátum: '<ISO_DATETIME> <TIMEZONE> (<UTC_OFFSET>) — <NOTE> — source=worldtimeapi unixtime=<UNIX>'\n"
+        "Formátum: '<ISO_DATETIME> <TIMEZONE> (<UTC_OFFSET>) — <NOTE> — source=github_api_date_header unixtime=<UNIX>'\n"
         "Ne tegyél hozzá extra magyarázatot.\n\n"
         f"ISO_DATETIME: {dt}\n"
         f"TIMEZONE: {tz}\n"
@@ -91,10 +129,28 @@ def build_openai_prompt(ts: Dict[str, Any], note: str) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--timezone", default="Europe/Budapest", help="IANA timezone pl. Europe/Budapest")
-    ap.add_argument("--note", required=True, help="User input (pl. 'Deploy elindítva')")
-    ap.add_argument("--model", default="gpt-5-mini", help="OpenAI model, pl. gpt-5.2 vagy gpt-5-mini")
-    ap.add_argument("--no-openai", action="store_true", help="Csak public API hívás (OpenAI nélkül)")
+
+    ap.add_argument(
+        "--timezone",
+        default=os.getenv("TIMEZONE", "Europe/Budapest"),
+        help="IANA timezone pl. Europe/Budapest",
+    )
+    ap.add_argument(
+        "--note",
+        required=True,
+        help="User input (pl. 'Deploy elindítva')",
+    )
+    ap.add_argument(
+        "--model",
+        default=os.getenv("MODEL", "gpt-5-mini"),
+        help="OpenAI model, pl. gpt-5-mini",
+    )
+    ap.add_argument(
+        "--no-openai",
+        action="store_true",
+        help="Csak public API hívás (OpenAI nélkül)",
+    )
+
 
     args = ap.parse_args()
 
@@ -102,20 +158,13 @@ def main() -> int:
     ts = fetch_third_party_timestamp(args.timezone)
 
     result: Dict[str, Any] = {
-        "public_api": {
-            "source": "worldtimeapi",
-            "timezone": args.timezone,
-            "datetime": ts.get("datetime"),
-            "unixtime": ts.get("unixtime"),
-            "utc_offset": ts.get("utc_offset"),
-            "raw": ts,
-        }
+        "public_api": ts
     }
 
     # 2) OpenAI API
     if not args.no_openai:
         if not os.getenv("OPENAI_API_KEY"):
-            print("HIBA: nincs OPENAI_API_KEY env var. (export OPENAI_API_KEY=...)", file=sys.stderr)
+            print("HIBA: nincs OPENAI_API_KEY. Tedd a .env fájlba.", file=sys.stderr)
             return 2
 
         prompt = build_openai_prompt(ts, args.note)

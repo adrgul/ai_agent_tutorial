@@ -14,8 +14,15 @@ pip install -r requirements.txt
 ## Futtatás
 ### Csak public API (OpenAI nélkül)
 ```bash
-python hf1_api_calls.py --timezone Europe/Budapest --note "Teszt" --no-openai
-```
+cd mini_projects/tamaskovics.zsolt/hf1
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+cp .env.example .env
+nano .env
+
+python hf1_api_calls.py --note "Deploy elindítva"```
 
 ### Public + OpenAI
 ```bash
