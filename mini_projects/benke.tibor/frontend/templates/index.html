@@ -50,14 +50,46 @@
     
     <!-- Debug Info Panel -->
     <div class="debug-info-panel" id="debugPanel">
-        <h4>🐛 Debug Info</h4>
+        <div class="debug-header">
+            <h4>🐛 Debug Info</h4>
+            <button id="debugToggle" class="debug-toggle-btn" title="Minimize/Maximize">−</button>
+        </div>
+        <div id="debugContent" class="debug-content">
         <p><span class="debug-label">Session:</span> <span id="debugSession">-</span></p>
         <p><span class="debug-label">Domain:</span> <span id="debugDomain">-</span></p>
-        <p><span class="debug-label">Citations:</span> <span id="debugCitations">0</span></p>
+        <p><span class="debug-label">Chunk Count:</span> <span id="debugChunkCount">0</span></p>
+        <p><span class="debug-label">Max Score:</span> <span id="debugMaxScore">-</span></p>
+        <p><span class="debug-label">Pipeline Latency:</span> <span id="debugLatency">-</span></p>
         <p><span class="debug-label">Workflow:</span> <span id="debugWorkflow">-</span></p>
         <p><span class="debug-label">Next:</span> <span id="debugNextStep">-</span></p>
+        
+        <details style="margin-top: 10px;">
+            <summary style="cursor: pointer; font-weight: bold; color: #10b981;">📤 Request JSON</summary>
+            <pre id="debugRequestJson" style="background: #1a1a1a; padding: 8px; border-radius: 4px; font-size: 11px; max-height: 40vh; overflow-y: auto; margin-top: 5px;">-</pre>
+        </details>
+        
+        <details style="margin-top: 10px;">
+            <summary style="cursor: pointer; font-weight: bold; color: #10b981;">📥 Response JSON</summary>
+            <pre id="debugResponseJson" style="background: #1a1a1a; padding: 8px; border-radius: 4px; font-size: 11px; max-height: 40vh; overflow-y: auto; margin-top: 5px;">-</pre>
+        </details>
+        
+        <details style="margin-top: 10px;">
+            <summary style="cursor: pointer; font-weight: bold; color: #3b82f6;">🔍 RAG Context</summary>
+            <pre id="debugRagContext" style="background: #1a1a1a; padding: 8px; border-radius: 4px; font-size: 11px; max-height: 40vh; overflow-y: auto; margin-top: 5px; white-space: pre-wrap;">-</pre>
+        </details>
+        
+        <details style="margin-top: 10px;">
+            <summary style="cursor: pointer; font-weight: bold; color: #f59e0b;">🤖 LLM Prompt</summary>
+            <pre id="debugLlmPrompt" style="background: #1a1a1a; padding: 8px; border-radius: 4px; font-size: 11px; max-height: 40vh; overflow-y: auto; margin-top: 5px; white-space: pre-wrap;">-</pre>
+        </details>
+        
+        <details style="margin-top: 10px;">
+            <summary style="cursor: pointer; font-weight: bold; color: #8b5cf6;">💬 LLM Response</summary>
+            <pre id="debugLlmResponse" style="background: #1a1a1a; padding: 8px; border-radius: 4px; font-size: 11px; max-height: 40vh; overflow-y: auto; margin-top: 5px; white-space: pre-wrap;">-</pre>
+        </details>
+        </div>
     </div>
     
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=101"></script>
 </body>
 </html>

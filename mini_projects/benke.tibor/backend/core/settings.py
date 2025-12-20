@@ -85,14 +85,21 @@ OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
 
 # Vector DB Configuration
 QDRANT_HOST = os.getenv('QDRANT_HOST', 'localhost')
-QDRANT_PORT = int(os.getenv('QDRANT_PORT', 6333))
+QDRANT_PORT = int(os.getenv('QDRANT_PORT', 6334))
+QDRANT_URL = f"http://{QDRANT_HOST}:{QDRANT_PORT}"
+
+# Multi-domain collection with domain filtering (NEW approach)
+QDRANT_COLLECTION = os.getenv('QDRANT_COLLECTION', 'multi_domain_kb')
+
+# Legacy: Individual collections per domain (backward compatibility)
+# Not used with multi_domain_kb approach - all domains in one collection with filters
 QDRANT_COLLECTIONS = {
-    'hr': os.getenv('QDRANT_COLLECTION_HR', 'hr_knowledge'),
-    'it': os.getenv('QDRANT_COLLECTION_IT', 'it_knowledge'),
-    'finance': os.getenv('QDRANT_COLLECTION_FINANCE', 'finance_knowledge'),
-    'legal': 'legal_knowledge',
-    'marketing': 'marketing_knowledge',
-    'general': 'general_knowledge',
+    'hr': os.getenv('QDRANT_COLLECTION_HR', 'multi_domain_kb'),
+    'it': os.getenv('QDRANT_COLLECTION_IT', 'multi_domain_kb'),
+    'finance': os.getenv('QDRANT_COLLECTION_FINANCE', 'multi_domain_kb'),
+    'legal': 'multi_domain_kb',
+    'marketing': 'multi_domain_kb',  # All domains use same collection with domain filter
+    'general': 'multi_domain_kb',
 }
 
 # Embedding model
@@ -130,6 +137,6 @@ LOGGING = {
     },
     'root': {
         'handlers': ['console'],
-        'level': 'INFO',
+        'level': 'DEBUG',  # Changed to DEBUG for detailed postgres pool debugging
     },
 }

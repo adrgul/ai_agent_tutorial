@@ -28,6 +28,11 @@ wheels/
 db.sqlite3
 /data/
 media/
+
+# Google OAuth credentials
+backend/credentials/client_secret.json
+backend/credentials/token.json
+backend/credentials/*.json
 staticfiles/
 
 # IDEs
