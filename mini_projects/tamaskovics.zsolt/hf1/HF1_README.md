@@ -2,7 +2,7 @@
 
 ## Mit csinál?
 - **Public API**: lekéri az aktuális időt (3rd-party “timestamp”) a WorldTimeAPI-ból.
-- **OpenAI API**: ebből + a te `--note` user inputodból generál egy 1 soros “timestamp statement”-et.
+- **OpenAI API**: ebből + a `--note` user inputból generál egy 1 soros “timestamp statement”-et.
 
 ## Telepítés
 ```bash
