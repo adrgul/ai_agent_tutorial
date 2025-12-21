@@ -60,10 +60,13 @@ class ChatService:
             session_id=session_id,
         )
 
-        # Save assistant message
+        # Save assistant message with domain and citations for caching
         assistant_message = Message(
             role="assistant",
             content=response.answer,
+            domain=response.domain,  # For cached regeneration
+            citations=[c.model_dump() for c in response.citations],  # For cached regeneration
+            workflow=response.workflow,
             metadata={
                 "domain": response.domain,
                 "citations": [c.model_dump() for c in response.citations],

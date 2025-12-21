@@ -285,6 +285,12 @@ main {
             border-radius: 1rem;
             word-wrap: break-word;
             line-height: 1.5;
+            position: relative;
+        }
+        
+        .message.bot .message-content {
+            width: 70%;
+            max-width: 70%;
         }
         
         .message.user .message-content {
@@ -317,6 +323,175 @@ main {
             color: #999;
             margin-top: 0.5rem;
             font-style: italic;
+        }
+        
+        /* Refresh buttons container */
+        .refresh-buttons {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            display: flex;
+            gap: 0.25rem;
+        }
+        
+        .refresh-btn {
+            background: #3d3d3d;
+            border: 1px solid #4d4d4d;
+            color: #ececf1;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            opacity: 0.7;
+        }
+        
+        .refresh-btn:hover {
+            opacity: 1;
+            background: #4d4d4d;
+            transform: scale(1.05);
+        }
+        
+        /* Fast refresh (cached) - green accent */
+        .refresh-fast:hover {
+            background: #2d5a2d;
+            border-color: #3d7a3d;
+        }
+        
+        /* Full refresh (RAG) - blue accent */
+        .refresh-full:hover {
+            background: #2d3d5a;
+            border-color: #3d4d7a;
+        }
+        
+        /* Citations container - clean design */
+        .citations-container {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            border: 1px solid #3d3d3d;
+        }
+        
+        .citations-header {
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #3d3d3d;
+        }
+        
+        .citations-title {
+            color: #10a37f;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .citations-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 1rem 0;
+        }
+        
+        .citations-list li {
+            padding: 0.5rem 0;
+            color: #ececf1;
+            font-size: 0.875rem;
+            border-bottom: 1px solid #2d2d2d;
+        }
+        
+        .citations-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .citation-link {
+            color: #10a37f;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        
+        .citation-link:hover {
+            color: #1ad1a5;
+            text-decoration: underline;
+        }
+        
+        /* No citations message */
+        .no-citations-container {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            border: 1px solid #3d3d3d;
+        }
+        
+        .no-citations-text {
+            color: #999;
+            font-size: 0.875rem;
+            font-style: italic;
+            margin: 0 0 1rem 0;
+        }
+        
+        /* Response-level feedback (single feedback per answer) */
+        .response-feedback {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem;
+            background: #2d2d2d;
+            border-radius: 0.5rem;
+            margin-top: 0.75rem;
+            gap: 1rem;
+        }
+        
+        .feedback-label {
+            color: #ececf1;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .feedback-buttons {
+            display: flex;
+            gap: 0.75rem;
+        }
+        
+        .feedback-btn {
+            background: #3d3d3d;
+            border: 1px solid #4d4d4d;
+            color: #ececf1;
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+            white-space: nowrap;
+        }
+        
+        .feedback-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .feedback-btn:hover {
+            background: #4d4d4d;
+            transform: scale(1.1);
+        }
+        
+        .feedback-btn.active {
+            border-color: #10a37f;
+            box-shadow: 0 0 8px rgba(16, 163, 127, 0.5);
+        }
+        
+        .like-btn:hover {
+            background: #2d5016;
+            border-color: #4a8020;
+        }
+        
+        .dislike-btn:hover {
+            background: #5c1616;
+            border-color: #8b2020;
         }
         
         .debug-panel {
@@ -502,14 +677,61 @@ main {
             font-size: 0.8rem;
             color: #ccc;
             width: 15%;
-            min-height: 180px;
+            max-height: 85vh;
+            overflow-y: auto;
             z-index: 10;
             box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+            transition: all 0.3s ease;
+        }
+        
+        .debug-info-panel.minimized {
+            width: auto;
+            max-height: none;
+            overflow: visible;
+            padding: 0.75rem 1rem;
+        }
+        
+        .debug-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.35rem;
+        }
+        
+        .debug-toggle-btn {
+            background: transparent;
+            border: 1px solid #3d3d3d;
+            color: #10a37f;
+            font-size: 1.2rem;
+            font-weight: bold;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            line-height: 1;
+        }
+        
+        .debug-toggle-btn:hover {
+            background: #2a2a2a;
+            border-color: #10a37f;
+        }
+        
+        .debug-content {
+            display: block;
+        }
+        
+        .debug-content.hidden {
+            display: none;
         }
         
         .debug-info-panel h4 {
             color: #10a37f;
-            margin-bottom: 0.35rem;
+            margin: 0;
             font-size: 0.9rem;
         }
         
@@ -547,4 +769,37 @@ main {
         @keyframes bounce {
             0%, 80%, 100% { transform: scale(0); opacity: 0.4; }
             40% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Refresh button - positioned in top-right corner */
+        .message-content {
+            position: relative;
+        }
+
+        .refresh-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            padding: 0.35rem 0.5rem;
+            background: rgba(45, 45, 45, 0.8);
+            color: #10a37f;
+            border: 1px solid #3d3d3d;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(4px);
+            opacity: 0.7;
+        }
+
+        .refresh-btn:hover {
+            background: rgba(61, 61, 61, 0.9);
+            border-color: #10a37f;
+            color: #1ad1a5;
+            opacity: 1;
+            transform: rotate(180deg);
+        }
+
+        .refresh-btn:active {
+            transform: scale(0.9) rotate(180deg);
         }

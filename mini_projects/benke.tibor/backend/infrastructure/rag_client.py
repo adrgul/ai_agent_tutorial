@@ -6,8 +6,31 @@ from typing import List, Dict, Any, Optional
 
 from domain.models import Citation, DomainType
 from domain.interfaces import IRAGClient
+from infrastructure.postgres_client import postgres_client
 
 logger = logging.getLogger(__name__)
+
+
+def calculate_feedback_boost(like_percentage: Optional[float]) -> float:
+    """
+    Calculate multiplicative boost factor based on user feedback.
+    Same formula as QdrantRAGClient for consistency.
+    
+    Args:
+        like_percentage: Percentage of likes (0-100) or None if no feedback
+        
+    Returns:
+        Boost factor: -0.2 to +0.3
+    """
+    if like_percentage is None:
+        return 0.0  # Neutral for new content
+    
+    if like_percentage > 70:
+        return 0.3  # High quality boost
+    elif like_percentage >= 40:
+        return 0.1  # Moderate boost
+    else:
+        return -0.2  # Quality penalty
 
 
 class MockQdrantClient(IRAGClient):
@@ -59,7 +82,36 @@ class MockQdrantClient(IRAGClient):
                 {
                     "doc_id": "BRAND-v3.2",
                     "title": "Brand Guidelines v3.2",
-                    "content": "A legfrissebb brand guideline v3.2...",
+                    "content": """Brand Guidelines v3.2 - Teljes útmutató
+                    
+1. Színpaletta
+- Elsődleges szín: #10a37f (zöld)
+- Másodlagos szín: #1a1a1a (sötétszürke)
+- Kiegészítő szín: #ececf1 (világosszürke)
+
+2. Tipográfia
+- Főbetűtípus: Arial, Regular, 12pt.
+- Címek: Arial Bold, 16pt.
+- Egyéb betűtípusok: Használj maximalisan 2-3 különböző betűtípust a tiszta és egységes megjelenés érdekében.
+
+3. Logóhasználat
+- A logó mindig tiszta háttéren jelenjen meg
+- Minimum méret: 48x48 pixel
+- Védőterület: 10px minden oldalon
+
+4. Képhasználat
+- Stílus: A képek legyenek professzionálisak, tükrözzék a cég értékeit.
+- Minőség: Mindig használj HD minőségű képeket, kerüld az alacsony felbontású képeket.
+
+5. Hangvétel és kommunikáció
+- Írásbeli kommunikáció: Barátságos, de professzionális hangvétel.
+- Szóhasználat: Kerüld a túlzott szakmai zsargont, a cél közönség számára érthető nyelvezetet használj.
+
+6. Alkalmazás platformok
+- Weboldal: A weboldalon a brand guideline összes elemét követni kell, beleértve a színpalettát és a betűtípusokat.
+- Közösségi média: A közösségi médiában a brand elemek egységes alkalmazása szükséges a márka arculatának megőrzése érdekében.
+
+Ezek az irányelvek segítik a márkánk egységes megjelenését és kommunikációját minden platformon. Kérjük, hogy minden munkatárs tartsa be ezeket a szabályokat a brand integritásának megőrzése érdekében. Ha további részletekre van szükséged, kérlek, jelezd!""",
                     "score": 0.97
                 },
             ],
@@ -100,6 +152,45 @@ class MockQdrantClient(IRAGClient):
             )
             for doc in scored_docs[:top_k]
         ]
+        
+        # Apply feedback-weighted re-ranking (same as QdrantRAGClient)
+        logger.info(f"🔍 DEBUG: postgres_client.pool = {postgres_client.pool}")
+        logger.info(f"🔍 DEBUG: postgres_client.is_available() = {postgres_client.is_available()}")
+        
+        if postgres_client.is_available():
+            logger.info("🎯 Applying feedback-weighted re-ranking (MockQdrantClient)...")
+            
+            # Use asgiref.sync to call async function from sync context
+            from asgiref.sync import async_to_sync
+            
+            for citation in citations:
+                # Fetch feedback percentage (sync wrapper for async method)
+                like_pct = async_to_sync(postgres_client.get_citation_feedback_percentage)(
+                    citation.doc_id,
+                    domain
+                )
+                
+                # Calculate boost factor
+                boost = calculate_feedback_boost(like_pct)
+                
+                # Apply boost to score
+                original_score = citation.score
+                citation.score = original_score * (1 + boost)
+                
+                if like_pct is not None:
+                    logger.info(
+                        f"📊 {citation.doc_id}: "
+                        f"semantic={original_score:.3f}, "
+                        f"feedback={like_pct:.1f}%, "
+                        f"boost={boost:+.1f}, "
+                        f"final={citation.score:.3f}"
+                    )
+            
+            # Re-sort by boosted score
+            citations.sort(key=lambda c: c.score, reverse=True)
+            logger.info(f"✅ Re-ranked {len(citations)} citations by feedback-weighted scores")
+        else:
+            logger.warning("⚠️ PostgreSQL unavailable, skipping feedback ranking")
         
         logger.info(f"Retrieved {len(citations)} docs for domain={domain}")
         return citations

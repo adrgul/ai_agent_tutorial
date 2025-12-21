@@ -11,6 +11,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 
 from domain.models import DomainType, QueryResponse, Citation, Memory, Message
+from infrastructure.error_handling import check_token_limit, estimate_tokens, usage_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,10 @@ class AgentState(TypedDict, total=False):
     citations: list
     workflow: Dict[str, Any]
     user_id: str
+    # Telemetry fields
+    rag_context: str  # Full RAG context sent to LLM
+    llm_prompt: str   # Complete prompt sent to LLM
+    llm_response: str # Raw LLM response
 
 
 class QueryAgent:
@@ -119,12 +124,22 @@ Category:"""
 
         state["citations"] = [c.model_dump() for c in citations]
         state["retrieved_docs"] = citations
+        
+        # Build RAG context for telemetry
+        context_parts = []
+        for i, c in enumerate(citations, 1):
+            if hasattr(c, 'content') and c.content:
+                context_parts.append(f"[Doc {i}: {c.title}]\n{c.content[:500]}...")
+            else:
+                context_parts.append(f"[Doc {i}: {c.title}]")
+        state["rag_context"] = "\n\n".join(context_parts)
+        
         logger.info(f"Retrieved {len(citations)} documents")
 
         return state
 
     async def _generation_node(self, state: AgentState) -> AgentState:
-        """Generate response using RAG context."""
+        """Generate response using RAG context with token limit protection."""
         logger.info("Generation node executing")
 
         # Build context from citations with content
@@ -153,11 +168,38 @@ User query: "{state['query']}"
 Provide a comprehensive answer based on the retrieved documents above.
 Combine information from multiple sources when they relate to the same topic.
 If asking about guidelines or rules, include ALL relevant details found in the documents.
+Use proper formatting with line breaks and bullet points for better readability.
 Answer in Hungarian if the query is in Hungarian, otherwise in English.
 """
 
+        # Check token limit before sending to OpenAI
+        try:
+            check_token_limit(prompt, max_tokens=100000)  # gpt-4o-mini 128k context
+            logger.info(f"Prompt size: ~{estimate_tokens(prompt)} tokens")
+        except ValueError as e:
+            logger.error(f"Token limit exceeded: {e}")
+            # Truncate context and retry
+            context_parts = context_parts[:3]  # Only use top 3 docs
+            context = "\n\n".join(context_parts)
+            prompt = f"""
+You are a helpful HR/IT/Finance/Legal/Marketing assistant.
+
+Retrieved documents:
+{context}
+
+User query: "{state['query']}"
+
+Provide an answer based on the retrieved documents above.
+Answer in Hungarian if the query is in Hungarian, otherwise in English.
+"""
+            logger.warning("Prompt truncated to fit token limit")
+
         response = await self.llm.ainvoke([HumanMessage(content=prompt)])
         answer = response.content
+        
+        # Save telemetry data
+        state["llm_prompt"] = prompt
+        state["llm_response"] = answer
 
         state["output"] = {
             "domain": state["domain"],
@@ -198,8 +240,42 @@ Answer in Hungarian if the query is in Hungarian, otherwise in English.
 
         return state
 
+    async def regenerate(self, query: str, domain: str, citations: list, user_id: str) -> QueryResponse:
+        """Regenerate response using cached domain + citations (skip intent + RAG)."""
+        logger.info(f"Agent regenerate: user={user_id}, domain={domain}, cached_citations={len(citations)}")
+
+        # Build state with cached data
+        initial_state: AgentState = {
+            "query": query,
+            "user_id": user_id,
+            "messages": [HumanMessage(content=query)],
+            "domain": domain,  # ← FROM CACHE
+            "citations": citations,  # ← FROM CACHE
+            "retrieved_docs": [],
+            "workflow": None,
+        }
+
+        # SKIP intent detection node
+        # SKIP retrieval node
+        # Run ONLY generation + workflow
+        logger.info("Skipping intent detection and RAG retrieval (using cache)")
+        
+        state_after_generation = await self._generation_node(initial_state)
+        final_state = await self._workflow_node(state_after_generation)
+
+        # Build response
+        response = QueryResponse(
+            domain=final_state["domain"],
+            answer=final_state["output"]["answer"],
+            citations=[Citation(**c) for c in final_state["citations"]],
+            workflow=final_state.get("workflow"),
+        )
+
+        logger.info("Agent regenerate completed (cached)")
+        return response
+
     async def run(self, query: str, user_id: str, session_id: str) -> QueryResponse:
-        """Execute agent workflow."""
+        """Execute full agent workflow (all 4 nodes)."""
         logger.info(f"Agent run: user={user_id}, session={session_id}, query={query[:50]}...")
 
         initial_state: AgentState = {
@@ -214,12 +290,15 @@ Answer in Hungarian if the query is in Hungarian, otherwise in English.
 
         final_state = await self.workflow.ainvoke(initial_state)
 
-        # Build response
+        # Build response with telemetry
         response = QueryResponse(
             domain=final_state["domain"],
             answer=final_state["output"]["answer"],
             citations=[Citation(**c) for c in final_state["citations"]],
             workflow=final_state.get("workflow"),
+            rag_context=final_state.get("rag_context"),
+            llm_prompt=final_state.get("llm_prompt"),
+            llm_response=final_state.get("llm_response"),
         )
 
         logger.info("Agent run completed")

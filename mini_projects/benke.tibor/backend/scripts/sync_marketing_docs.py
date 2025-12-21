@@ -28,11 +28,11 @@ sys.path.insert(0, str(backend_path))
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
 
 # Local imports
 from infrastructure.google_drive_client import get_drive_client
 from infrastructure.document_parser import DocumentParser
+from infrastructure.openai_clients import OpenAIClientFactory
 
 # Setup logging
 logging.basicConfig(
@@ -54,10 +54,11 @@ class MarketingDocsSync:
     """Sync marketing documents from Google Drive to Qdrant."""
     
     def __init__(self):
-        """Initialize clients."""
+        """Initialize clients - uses centralized OpenAI embeddings."""
         self.drive_client = get_drive_client()
         self.qdrant_client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
-        self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+        # Use centralized embeddings factory
+        self.embeddings = OpenAIClientFactory.get_embeddings()
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=CHUNK_SIZE,
             chunk_overlap=CHUNK_OVERLAP,
