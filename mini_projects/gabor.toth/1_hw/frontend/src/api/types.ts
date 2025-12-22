@@ -3,13 +3,6 @@ export interface Coordinates {
   lon: number;
 }
 
-export interface DateContext {
-  year: number;
-  month: number;
-  day: number;
-  weekday: string;
-}
-
 export interface Activity {
   name: string;
   description: string;
@@ -37,7 +30,6 @@ export interface POI {
 export interface CityBriefingResponse {
   city: string;
   coordinates: Coordinates;
-  date_context: DateContext;
   recommended_activities: Activity[];
   city_facts: CityFact[];
   briefing: Briefing;

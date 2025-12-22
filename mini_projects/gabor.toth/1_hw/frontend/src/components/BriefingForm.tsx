@@ -4,7 +4,6 @@ interface BriefingFormProps {
   onSubmit: (params: {
     city: string;
     activity?: string;
-    date?: string;
   }) => void;
   isLoading?: boolean;
 }

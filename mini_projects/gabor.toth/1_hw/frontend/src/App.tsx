@@ -112,7 +112,7 @@ function AppContent() {
                       <div>
                         <h3 className="text-xl font-bold text-white">{briefing.city}</h3>
                         <p className="text-slate-400">
-                          {briefing.date_context.weekday}, {briefing.date_context.month}/{briefing.date_context.day}/{briefing.date_context.year}
+                          {briefing.metadata?.generated_at ? new Date(briefing.metadata.generated_at).toLocaleDateString() : ""}
                         </p>
                       </div>
                       <span className="text-xs bg-slate-700 text-slate-300 px-3 py-1 rounded">

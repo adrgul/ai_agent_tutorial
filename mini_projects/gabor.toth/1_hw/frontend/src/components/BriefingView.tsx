@@ -11,9 +11,6 @@ export const BriefingView = ({ data }: BriefingViewProps) => {
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-8 rounded-lg">
         <h1 className="text-4xl font-bold mb-2">{data.city}</h1>
-        <p className="text-blue-100">
-          {data.date_context.weekday}, {data.date_context.month}/{data.date_context.day}/{data.date_context.year}
-        </p>
         <p className="text-blue-200 mt-2">
           Coordinates: {data.coordinates.lat.toFixed(4)}, {data.coordinates.lon.toFixed(4)}
         </p>
