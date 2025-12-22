@@ -428,6 +428,8 @@ curl "http://localhost:3000/api/history?limit=5"
 
 ---
 
+RELEASE OF PORTS WORKS WITH YOUR OWN USER PASSWORD!
+
 ## 📄 License
 
 MIT License
