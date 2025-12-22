@@ -157,12 +157,6 @@ GET /api/briefing?city=budapest&activity=sport
     }
   ],
   "fallback_message": null,
-  "date_context": {
-    "year": 2025,
-    "month": 12,
-    "day": 22,
-    "weekday": "Monday"
-  },
   "metadata": {
     "generated_at": "2025-12-22T10:30:00Z"
   }

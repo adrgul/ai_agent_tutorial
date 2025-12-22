@@ -1,18 +1,10 @@
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import date
 
 
 class Coordinates(BaseModel):
     lat: float
     lon: float
-
-
-class DateContext(BaseModel):
-    year: int
-    month: int
-    day: int
-    weekday: str  # e.g., "Monday"
 
 
 class POI(BaseModel):
@@ -42,7 +34,6 @@ class Briefing(BaseModel):
 class CityBriefingResponse(BaseModel):
     city: str
     coordinates: Coordinates
-    date_context: DateContext
     recommended_activities: List[Activity]
     city_facts: List[CityFact]
     briefing: Briefing

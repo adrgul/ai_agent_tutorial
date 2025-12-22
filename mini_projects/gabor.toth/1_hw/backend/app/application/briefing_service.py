@@ -1,6 +1,6 @@
-from datetime import datetime, date
+from datetime import datetime
 from ..domain.models import (
-    Coordinates, CityBriefingResponse, Activity, DateContext, Briefing
+    Coordinates, CityBriefingResponse, Activity, Briefing
 )
 from ..domain.ports import (
     GeocodingPort, PlacesPort, KnowledgePort, LLMPort, HistoryPort
@@ -26,14 +26,10 @@ class BriefingService:
         self,
         city: str,
         activity: str = None,
-        briefing_date: date = None,
     ) -> CityBriefingResponse:
         """Generate a complete city briefing."""
         
         print(f"\n📍 [Service] Starting briefing for: {city}")
-        
-        if briefing_date is None:
-            briefing_date = datetime.now().date()
         
         # Get city coordinates
         print(f"  1️⃣ Getting coordinates for {city}...")
@@ -64,17 +60,6 @@ class BriefingService:
         print(f"  4️⃣ Generating briefing with OpenAI...")
         briefing_text = await self.llm.generate_briefing(city, context)
         print(f"     ✓ Briefing generated")
-        
-        # Create date context
-        weekday_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-        weekday = weekday_names[briefing_date.weekday()]
-        
-        date_context = DateContext(
-            year=briefing_date.year,
-            month=briefing_date.month,
-            day=briefing_date.day,
-            weekday=weekday,
-        )
         
         # Suggested activities based on activity preference
         print(f"  5️⃣ Creating suggested activities...")
@@ -151,7 +136,6 @@ class BriefingService:
         response = CityBriefingResponse(
             city=city,
             coordinates=coordinates,
-            date_context=date_context,
             recommended_activities=activities,
             city_facts=facts,
             briefing=Briefing(paragraph=briefing_text),
