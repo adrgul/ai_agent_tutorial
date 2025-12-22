@@ -1,8 +1,12 @@
 # KnowledgeRouter API Documentation
 
-**Version:** 2.0  
+**Version:** 2.2  
 **Base URL:** `http://localhost:8001/api/`  
-**Content-Type:** `application/json`
+**Content-Type:** `application/json`  
+**Orchestration:** LangGraph StateGraph (4 nodes)
+
+> **Note:** Minden `/api/query/` hívás egy teljes LangGraph workflow-n megy keresztül:
+> Intent Detection → Retrieval (RAG) → Generation (LLM) → Workflow Execution
 
 ---
 
@@ -18,9 +22,12 @@
   - [DELETE /api/usage-stats/](#delete-apiusage-stats)
   - [GET /api/cache-stats/](#get-apicache-stats)
   - [DELETE /api/cache-stats/](#delete-apicache-stats)
+  - [POST /api/feedback/citation/](#post-apifeedbackcitation) **NEW**
+  - [GET /api/feedback/stats/](#get-apifeedbackstats) **NEW**
   - [GET /api/google-drive/files/](#get-apigoogle-drivefiles)
 - [Data Models](#data-models)
 - [Cache Invalidation Strategy](#cache-invalidation-strategy)
+- [Feedback System](#feedback-system) **NEW**
 - [Status Codes](#status-codes)
 - [Rate Limits & Retry](#rate-limits--retry)
 
@@ -67,9 +74,19 @@ Jelenleg nincs authentication (development mode). Production környezetben aján
 
 ### POST `/api/query/`
 
-**Multi-domain RAG query feldolgozás LangGraph agent orchestrációval.**
+**Multi-domain RAG query feldolgozás LangGraph StateGraph orchestrációval.**
 
-Feldolgoz egy felhasználói kérdést, detektálja a domain-t (HR, IT, Finance, Marketing, Legal, General), releváns dokumentumokat keres Qdrant-ból domain-specifikus szűréssel, és GPT-4o-mini segítségével generál választ.
+Feldolgoz egy felhasználói kérdést **LangGraph StateGraph** segítségével, amely 4 node-on keresztül vezérli a folyamatot:
+
+1. **Intent Detection Node** - Domain klasszifikáció (keyword match + LLM fallback)
+2. **Retrieval Node** - Domain-specifikus RAG keresés Qdrant-ban
+3. **Generation Node** - LLM válasz generálás (GPT-4o-mini)
+4. **Workflow Execution Node** - Domain-specifikus workflow triggering (HR/IT)
+
+**Domain Detection Stratégia:**
+- **Keyword-alapú**: Gyors, költségmentes pre-classification (pl. "brand" → marketing)
+- **LLM-alapú**: Fallback komplex querykhez (pl. "VPN problem" → it)
+- **Supported Domains**: HR, IT, Finance, Legal, Marketing, General
 
 #### Request
 
@@ -126,6 +143,33 @@ Content-Type: application/json
       "type": "information_query",
       "status": "completed",
       "next_step": null
+    },
+    "telemetry": {
+      "total_latency_ms": 3918.93,
+      "chunk_count": 5,
+      "max_similarity_score": 0.89,
+      "retrieval_latency_ms": null,
+      "request": {
+        "user_id": "emp_001",
+        "session_id": "session_12345",
+        "query": "Mi a brand guideline sorhossz?"
+      },
+      "response": {
+        "domain": "marketing",
+        "answer_length": 245,
+        "citation_count": 5,
+        "workflow_triggered": false
+      },
+      "rag": {
+        "context": "[Doc 1: Aurora_Digital_Brand_Guidelines]\nMaximális sorhossz...",
+        "chunk_count": 5
+      },
+      "llm": {
+        "prompt": "You are a helpful assistant...\n\nRetrieved documents:\n[Doc 1]...",
+        "response": "A brand guideline sorhosszra vonatkozó javaslat...",
+        "prompt_length": 2847,
+        "response_length": 245
+      }
     }
   }
 }
@@ -149,6 +193,15 @@ Content-Type: application/json
 | `data.workflow.type` | string | Workflow típus |
 | `data.workflow.status` | string | Workflow státusz (`draft`, `pending`, `completed`) |
 | `data.workflow.next_step` | string\|null | Következő lépés leírása |
+| `data.telemetry` | object | **🆕 Telemetria adatok (debug & analytics)** |
+| `data.telemetry.total_latency_ms` | float | Teljes pipeline futásidő (ms) |
+| `data.telemetry.chunk_count` | integer | Visszaadott chunk-ok száma |
+| `data.telemetry.max_similarity_score` | float | Legmagasabb relevancia score |
+| `data.telemetry.retrieval_latency_ms` | float\|null | RAG keresés ideje (TODO) |
+| `data.telemetry.request` | object | Request payload (debug) |
+| `data.telemetry.response` | object | Response metadata (debug) |
+| `data.telemetry.rag` | object | RAG context (LLM bemenet) |
+| `data.telemetry.llm` | object | LLM prompt/response (debug) |
 
 **Error Responses:**
 
@@ -182,6 +235,42 @@ Content-Type: application/json
   "code": "SERVICE_UNAVAILABLE"
 }
 ```
+
+#### LangGraph Execution Flow
+
+```
+User Query: "Mi a brand guideline sorhossz?"
+    ↓
+[LangGraph StateGraph Execution]
+    ↓
+[Node 1: Intent Detection]
+├─ Keyword match: "brand" → domain = "marketing"
+└─ state["domain"] = "marketing" ✅
+    ↓
+[Node 2: Retrieval]
+├─ Read: state["domain"] = "marketing"
+├─ Qdrant filter: {"domain": "marketing"}
+├─ Semantic search: top_k=5
+└─ state["citations"] = [marketing_docs] ✅
+    ↓
+[Node 3: Generation]
+├─ Read: state["citations"]
+├─ Build context from marketing docs
+├─ LLM prompt + generation (GPT-4o-mini)
+└─ state["output"] = {answer, citations} ✅
+    ↓
+[Node 4: Workflow]
+├─ Read: state["domain"] = "marketing"
+├─ No workflow for marketing queries
+└─ state["workflow"] = null
+    ↓
+[Response] → {domain, answer, citations, workflow}
+```
+
+**State Management:**
+- AgentState TypedDict carries data between nodes
+- Each node reads/writes to shared state
+- No manual state passing required (LangGraph orchestration)
 
 #### Example Usage
 
@@ -232,6 +321,200 @@ $response = Invoke-WebRequest `
 $data = ($response.Content | ConvertFrom-Json).data
 Write-Host "Domain: $($data.domain)"
 Write-Host "Answer: $($data.answer)"
+```
+
+---
+
+### POST `/api/regenerate/` **NEW**
+
+**⚡ Cached regeneration - Gyors válasz újragenerálás RAG nélkül.**
+
+Újragenerálja a választ **ugyanazzal a RAG kontextussal** (domain + citations) mint az előző query, de új LLM generálással. Kihagyja az intent detection és RAG retrieval node-okat, csak a generation + workflow node-okat futtatja.
+
+**Use Cases:**
+- 🔄 Refresh answer: Ugyanaz a kérdés, más megfogalmazással
+- 🎯 Retry generation: Válasz minőség javítása
+- 💰 Cost savings: 80% olcsóbb mint full pipeline
+- ⚡ Speed: 38% gyorsabb (~3500ms vs ~5600ms)
+
+#### Request
+
+**Headers:**
+```
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "session_id": "string",
+  "query": "string",
+  "user_id": "string"
+}
+```
+
+**Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `session_id` | string | Yes | Session ID (kell legyen előző bot message) |
+| `query` | string | Yes | Újragenerálandó kérdés |
+| `user_id` | string | Yes | Felhasználó azonosítója |
+
+**Constraints:**
+- Session-ben kell lennie minimum 1 bot message-nek
+- Bot message-ben kell lennie `domain` és `citations` mezőknek
+
+#### Response
+
+**Success (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "domain": "marketing",
+    "answer": "Regenerált válasz: A brand guideline sorhosszra...",
+    "citations": [
+      {
+        "doc_id": "1ACEdQxgUuAsDHKPBqKyp2kt88DjfXjhv#chunk2",
+        "title": "Aurora_Digital_Brand_Guidelines_eng.docx",
+        "score": 0.89,
+        "content": "Maximális sorhossz: 70–80 karakter..."
+      }
+    ],
+    "workflow": null,
+    "regenerated": true,
+    "cache_info": {
+      "skipped_nodes": ["intent_detection", "retrieval"],
+      "executed_nodes": ["generation", "workflow"],
+      "cached_citations_count": 5,
+      "cached_domain": "marketing"
+    }
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `regenerated` | boolean | Mindig `true` - jelzi, hogy cached regeneration |
+| `cache_info` | object | Metadata a cache használatról |
+| `cache_info.skipped_nodes` | array | Kihagyott node-ok (intent, retrieval) |
+| `cache_info.executed_nodes` | array | Futtatott node-ok (generation, workflow) |
+| `cache_info.cached_citations_count` | int | Cache-elt citations száma |
+
+#### LangGraph Execution Flow (Cached)
+
+```
+User clicks ⚡ Refresh → POST /api/regenerate/
+    ↓
+[Read Session History]
+├─ Last bot message extraction
+├─ domain = "marketing" (FROM CACHE)
+└─ citations = [...] (FROM CACHE)
+    ↓
+[LangGraph Partial Execution]
+    ↓
+[SKIP: Intent Detection] ❌
+├─ Savings: ~100 tokens + LLM call
+└─ Use cached domain = "marketing"
+    ↓
+[SKIP: RAG Retrieval] ❌
+├─ Savings: ~1500 tokens + Qdrant query
+└─ Use cached citations = [...]
+    ↓
+[Node 3: Generation] ✅ EXECUTED
+├─ Read: cached citations
+├─ Build context (SAME as before)
+├─ LLM regenerates answer (FRESH)
+└─ state["output"] = {new_answer, same_citations}
+    ↓
+[Node 4: Workflow] ✅ EXECUTED
+├─ Read: cached domain
+└─ Execute workflow (if applicable)
+    ↓
+[Response] → {regenerated: true, cache_info}
+```
+
+**Performance Comparison:**
+
+| Metric | Full Pipeline | Cached Regeneration | Savings |
+|--------|--------------|---------------------|---------|
+| **Time** | ~5600ms | ~3500ms | **38% faster** |
+| **Tokens** | ~2500 | ~500 | **80% cheaper** |
+| **LLM Calls** | 2 | 1 | **50% less** |
+| **Qdrant** | 1 query | 0 queries | **100% saved** |
+| **Nodes** | 4 | 2 | **50% skipped** |
+
+#### Example Usage
+
+**cURL:**
+```bash
+curl -X POST http://localhost:8001/api/regenerate/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "session_12345",
+    "query": "Mi a brand guideline sorhossz?",
+    "user_id": "emp_001"
+  }'
+```
+
+**Python:**
+```python
+response = requests.post(
+    "http://localhost:8001/api/regenerate/",
+    json={
+        "session_id": "session_12345",
+        "query": "Mi a brand guideline sorhossz?",
+        "user_id": "emp_001"
+    }
+)
+
+data = response.json()["data"]
+print(f"Regenerated: {data['regenerated']}")  # True
+print(f"Skipped nodes: {data['cache_info']['skipped_nodes']}")
+print(f"Savings: {data['cache_info']['cached_citations_count']} citations reused")
+```
+
+**PowerShell:**
+```powershell
+$body = @{
+    session_id = "session_12345"
+    query = "Mi a brand guideline sorhossz?"
+    user_id = "emp_001"
+} | ConvertTo-Json
+
+$response = Invoke-WebRequest `
+  -Uri "http://localhost:8001/api/regenerate/" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $body
+
+$data = ($response.Content | ConvertFrom-Json).data
+Write-Host "⚡ Regenerated: $($data.regenerated)"
+Write-Host "Cached citations: $($data.cache_info.cached_citations_count)"
+```
+
+**Error Responses:**
+
+**400 Bad Request (No bot messages in session):**
+```json
+{
+  "success": false,
+  "error": "No previous bot messages found in session",
+  "code": "NO_CACHE_AVAILABLE"
+}
+```
+
+**404 Not Found (Session doesn't exist):**
+```json
+{
+  "success": false,
+  "error": "Session not found",
+  "code": "SESSION_NOT_FOUND"
+}
 ```
 
 ---
@@ -1108,9 +1391,183 @@ curl http://localhost:8001/api/cache-stats/
 
 ---
 
+## 📊 Feedback System
+
+### POST `/api/feedback/citation/`
+
+**Submit user feedback (like/dislike) for a specific citation.**
+
+Aszinkron háttérfolyamatban menti az adatbázisba (PostgreSQL), nem blokkolja a választ. Támogatja domain-specifikus feedback aggregációt és citation ranking-et.
+
+#### Request
+
+**Headers:**
+```
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "citation_id": "string",
+  "domain": "string",
+  "user_id": "string",
+  "session_id": "string",
+  "query_text": "string",
+  "feedback_type": "like" | "dislike",
+  "query_embedding": [float] (optional),
+  "citation_rank": integer (optional)
+}
+```
+
+**Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `citation_id` | string | Yes | Document ID (Qdrant point ID) |
+| `domain` | string | Yes | Domain (marketing, hr, it, etc.) |
+| `user_id` | string | Yes | User identifier |
+| `session_id` | string | Yes | Conversation session ID |
+| `query_text` | string | Yes | Original user query |
+| `feedback_type` | string | Yes | "like" or "dislike" |
+| `query_embedding` | array | No | 1536-dim embedding for context-aware scoring |
+| `citation_rank` | integer | No | Position in citation list (1, 2, 3, ...) |
+
+#### Response
+
+**Success (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Feedback received and will be processed"
+}
+```
+
+**Error (400 Bad Request):**
+```json
+{
+  "success": false,
+  "error": "Missing required field: citation_id"
+}
+```
+
+**Error (500 Internal Server Error):**
+```json
+{
+  "success": false,
+  "error": "Failed to save feedback"
+}
+```
+
+#### Example
+
+```bash
+curl -X POST http://localhost:8001/api/feedback/citation/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "citation_id": "marketing_doc_001",
+    "domain": "marketing",
+    "user_id": "emp_123",
+    "session_id": "sess_abc",
+    "query_text": "What is our brand color?",
+    "feedback_type": "like",
+    "citation_rank": 1
+  }'
+```
+
+**Notes:**
+- Feedback mentése aszinkron (background thread)
+- Duplicate feedback (user + citation + session) felülírja az előzőt
+- Stats materialized view auto-refresh (best effort)
+
+---
+
+### GET `/api/feedback/stats/`
+
+**Get aggregated feedback statistics.**
+
+Visszaadja az összesített like/dislike statisztikákat domain-szűréssel. Materialized view-ból olvas (gyors query).
+
+#### Request
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| `domain` | string | No | Filter by specific domain | `?domain=marketing` |
+
+#### Response
+
+**Success (200 OK):**
+```json
+{
+  "success": true,
+  "domain_filter": "marketing",
+  "data": {
+    "total_feedbacks": 156,
+    "like_count": 128,
+    "dislike_count": 28,
+    "like_ratio": 0.82,
+    "by_domain": {
+      "marketing": {
+        "total": 156,
+        "likes": 128,
+        "dislikes": 28,
+        "like_percentage": 82.05
+      }
+    },
+    "top_liked_citations": [
+      {
+        "citation_id": "marketing_doc_001",
+        "likes": 45,
+        "dislikes": 2,
+        "like_percentage": 95.74
+      }
+    ],
+    "top_disliked_citations": [
+      {
+        "citation_id": "marketing_doc_099",
+        "likes": 3,
+        "dislikes": 12,
+        "like_percentage": 20.0
+      }
+    ]
+  }
+}
+```
+
+**Error (500 Internal Server Error):**
+```json
+{
+  "success": false,
+  "error": "Failed to retrieve feedback stats"
+}
+```
+
+#### Examples
+
+```bash
+# All domains
+curl http://localhost:8001/api/feedback/stats/
+
+# Marketing only
+curl http://localhost:8001/api/feedback/stats/?domain=marketing
+
+# HR only
+curl http://localhost:8001/api/feedback/stats/?domain=hr
+```
+
+**Notes:**
+- Stats frissülnek minden új feedback után (REFRESH MATERIALIZED VIEW)
+- Domain filter case-insensitive
+- Empty result ha nincs feedback
+
+---
+
 ## 🔗 Related Documentation
 
 - [Main README](../README.md)
+- [Redis Cache Architecture](REDIS_CACHE.md)
 - [Installation Guide](../INSTALLATION.md)
 - [Error Handling Architecture](ERROR_HANDLING.md) (coming soon)
 - [Google Drive Setup](GOOGLE_DRIVE_SETUP.md)

@@ -3,7 +3,7 @@ Infrastructure - Qdrant-based RAG client for production use.
 """
 import logging
 import os
-from typing import List
+from typing import List, Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue
@@ -12,8 +12,48 @@ from domain.models import Citation, DomainType
 from domain.interfaces import IRAGClient
 from infrastructure.openai_clients import OpenAIClientFactory
 from infrastructure.redis_client import redis_cache
+from infrastructure.postgres_client import postgres_client
 
 logger = logging.getLogger(__name__)
+
+
+def calculate_feedback_boost(like_percentage: Optional[float]) -> float:
+    """
+    Calculate multiplicative boost factor based on user feedback.
+    
+    Formula: final_score = semantic_score * (1 + feedback_boost)
+    
+    Tiered boost system:
+    - >70% like: +0.3 (30% boost) - High quality, popular content
+    - 40-70% like: +0.1 (10% boost) - Moderate approval
+    - <40% like: -0.2 (20% penalty) - Poor quality, demote
+    - No feedback: 0.0 (neutral) - Don't penalize new content
+    
+    Args:
+        like_percentage: Percentage of likes (0-100) or None if no feedback
+        
+    Returns:
+        Boost factor to apply: -0.2 to +0.3
+        
+    Examples:
+        >>> calculate_feedback_boost(85.0)  # 85% like
+        0.3  # 30% boost
+        >>> calculate_feedback_boost(55.0)  # 55% like
+        0.1  # 10% boost
+        >>> calculate_feedback_boost(25.0)  # 25% like
+        -0.2  # 20% penalty
+        >>> calculate_feedback_boost(None)  # No feedback
+        0.0  # Neutral
+    """
+    if like_percentage is None:
+        return 0.0  # Neutral for new/unfeedback content
+    
+    if like_percentage > 70:
+        return 0.3  # High quality boost
+    elif like_percentage >= 40:
+        return 0.1  # Moderate boost
+    else:
+        return -0.2  # Quality penalty
 
 
 class QdrantRAGClient(IRAGClient):
@@ -154,6 +194,43 @@ class QdrantRAGClient(IRAGClient):
                 )
                 doc_ids.append(str(point.id))  # Store Qdrant point ID (UUID string)
             
+            # Apply feedback-weighted re-ranking (BATCH to avoid connection pool exhaustion)
+            if postgres_client.is_available() and citations:
+                logger.info("🎯 Applying feedback-weighted re-ranking...")
+                logger.debug(f"🔍 Retrieved {len(citations)} citations from Qdrant, checking feedback...")
+                
+                # Batch fetch all feedback percentages in ONE query
+                citation_ids = [c.doc_id for c in citations]
+                logger.debug(f"🔍 Calling get_citation_feedback_batch for {len(citation_ids)} IDs")
+                feedback_map = await postgres_client.get_citation_feedback_batch(
+                    citation_ids,
+                    domain
+                )
+                logger.debug(f"✅ Received feedback for {len(feedback_map)} citations")
+                
+                # Apply boosts to each citation
+                for citation in citations:
+                    like_pct = feedback_map.get(citation.doc_id)  # None if no feedback
+                    boost = calculate_feedback_boost(like_pct)
+                    
+                    original_score = citation.score
+                    citation.score = original_score * (1 + boost)
+                    
+                    if like_pct is not None:
+                        logger.debug(
+                            f"📊 {citation.doc_id}: "
+                            f"semantic={original_score:.3f}, "
+                            f"feedback={like_pct:.1f}%, "
+                            f"boost={boost:+.1f}, "
+                            f"final={citation.score:.3f}"
+                        )
+                
+                # Re-sort by boosted score
+                citations.sort(key=lambda c: c.score, reverse=True)
+                logger.info(f"✅ Re-ranked {len(citations)} citations by feedback-weighted scores")
+            else:
+                logger.warning("⚠️ PostgreSQL unavailable, skipping feedback ranking")
+            
             # Layer 4: Cache query results
             if citations:
                 metadata = {
@@ -275,3 +352,69 @@ class QdrantRAGClient(IRAGClient):
         docs = mock_kb.get(domain, [])
         logger.info(f"Retrieved {len(docs[:top_k])} mock docs for domain={domain.value}")
         return docs[:top_k]
+    
+    async def retrieve(
+        self, 
+        query: str, 
+        domain: str, 
+        top_k: int = 5, 
+        apply_feedback_boost: bool = True
+    ) -> List[Citation]:
+        """
+        Retrieve relevant documents with optional feedback boosting.
+        
+        This is the main interface method that combines semantic search
+        with user feedback re-ranking.
+        
+        Args:
+            query: User query
+            domain: Domain to filter (hr, it, finance, marketing, etc.)
+            top_k: Number of results to return
+            apply_feedback_boost: Whether to apply feedback-based boosting
+            
+        Returns:
+            List of citations, optionally re-ranked by feedback
+        """
+        # First get semantic search results
+        citations = await self.retrieve_for_domain(domain, query, top_k)
+        
+        if not apply_feedback_boost or not citations:
+            return citations
+        
+        # Apply feedback boosting
+        try:
+            citation_ids = [c.doc_id for c in citations]
+            feedback_map = await postgres_client.get_citation_feedback_batch(
+                citation_ids=citation_ids,
+                domain=domain
+            )
+            
+            # Recalculate scores with feedback boost
+            for citation in citations:
+                feedback_pct = feedback_map.get(citation.doc_id)
+                boost = calculate_feedback_boost(feedback_pct)
+                citation.score = citation.score * (1 + boost)
+            
+            # Re-sort by boosted scores
+            citations.sort(key=lambda x: x.score, reverse=True)
+            
+            logger.info(f"Applied feedback boost to {len(citations)} citations")
+        except Exception as e:
+            logger.warning(f"Feedback boost failed, returning original results: {e}")
+        
+        return citations
+    
+    def is_available(self) -> bool:
+        """
+        Check if Qdrant client is available.
+        
+        Returns:
+            True if Qdrant is reachable, False otherwise
+        """
+        try:
+            # Try to get collection info
+            self.qdrant_client.get_collection(self.collection_name)
+            return True
+        except Exception as e:
+            logger.warning(f"Qdrant not available: {e}")
+            return False

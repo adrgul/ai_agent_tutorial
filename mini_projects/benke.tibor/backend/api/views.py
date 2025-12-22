@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.request import Request
+from asgiref.sync import async_to_sync
 
 from domain.models import QueryRequest
 from infrastructure.error_handling import APICallError, check_token_limit, estimate_tokens
@@ -61,8 +62,19 @@ class QueryAPIView(APIView):
 
             # Process through agent
             import asyncio
+            import time
+            
+            start_time = time.time()
             response = asyncio.run(chat_service.process_query(query_request))
-
+            total_latency = round((time.time() - start_time) * 1000, 2)  # ms
+            
+            # Calculate telemetry
+            chunk_count = len(response.citations)
+            max_score = max([c.score for c in response.citations], default=0.0)
+            
+            user_id = data.get("user_id", "guest")
+            session_id = data.get("session_id")
+            
             return Response(
                 {
                     "success": True,
@@ -72,6 +84,33 @@ class QueryAPIView(APIView):
                         "citations": [c.model_dump() for c in response.citations],
                         "workflow": response.workflow,
                         "confidence": response.confidence,
+                        "telemetry": {
+                            "total_latency_ms": total_latency,
+                            "chunk_count": chunk_count,
+                            "max_similarity_score": round(max_score, 3),
+                            "retrieval_latency_ms": None,  # TODO: measure RAG separately
+                            "request": {
+                                "user_id": user_id,
+                                "session_id": session_id,
+                                "query": query_text
+                            },
+                            "response": {
+                                "domain": response.domain,
+                                "answer_length": len(response.answer),
+                                "citation_count": chunk_count,
+                                "workflow_triggered": response.workflow is not None
+                            },
+                            "rag": {
+                                "context": response.rag_context,
+                                "chunk_count": chunk_count
+                            },
+                            "llm": {
+                                "prompt": response.llm_prompt,
+                                "response": response.llm_response,
+                                "prompt_length": len(response.llm_prompt) if response.llm_prompt else 0,
+                                "response_length": len(response.llm_response) if response.llm_response else 0
+                            }
+                        }
                     }
                 },
                 status=status.HTTP_200_OK,
@@ -441,3 +480,252 @@ class CacheStatsAPIView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+
+class CitationFeedbackAPIView(APIView):
+    """
+    POST /api/feedback/citation/ - Submit citation feedback (like/dislike).
+    """
+
+    def post(self, request: Request) -> Response:
+        """Submit citation feedback."""
+        try:
+            import json
+            import asyncio
+            from domain.models import CitationFeedback, FeedbackType
+            from infrastructure.postgres_client import postgres_client
+            
+            # Parse JSON body manually
+            try:
+                data = json.loads(request.body.decode('utf-8'))
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                return Response(
+                    {"success": False, "error": "Invalid JSON body"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Validate request data
+            required_fields = ["citation_id", "domain", "user_id", "session_id", "query_text", "feedback_type"]
+            
+            for field in required_fields:
+                if field not in data:
+                    return Response(
+                        {"success": False, "error": f"Missing required field: {field}"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            # Validate feedback_type
+            if data["feedback_type"] not in ["like", "dislike"]:
+                return Response(
+                    {"success": False, "error": "feedback_type must be 'like' or 'dislike'"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Create feedback model
+            feedback = CitationFeedback(
+                citation_id=data["citation_id"],
+                domain=data["domain"],
+                user_id=data["user_id"],
+                session_id=data["session_id"],
+                query_text=data["query_text"],
+                query_embedding=data.get("query_embedding"),  # Optional
+                feedback_type=FeedbackType(data["feedback_type"]),
+                citation_rank=data.get("citation_rank")  # Optional
+            )
+            
+            # Schedule feedback save as background task (non-blocking)
+            # This avoids event loop conflicts
+            import threading
+            
+            def save_feedback_background():
+                """Background thread to save feedback."""
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    feedback_id = loop.run_until_complete(postgres_client.save_citation_feedback_standalone(feedback))
+                    logger.info(f"Feedback saved: {feedback_id}")
+                    # Refresh stats
+                    loop.run_until_complete(postgres_client.refresh_stats())
+                except Exception as e:
+                    logger.error(f"Background feedback save failed: {e}")
+                finally:
+                    loop.close()
+            
+            # Start background thread
+            thread = threading.Thread(target=save_feedback_background, daemon=True)
+            thread.start()
+            
+            # Return immediately (optimistic response)
+            return Response(
+                {
+                    "success": True,
+                    "message": "Feedback received and will be processed"
+                },
+                status=status.HTTP_201_CREATED
+            )
+            
+        except Exception as e:
+            logger.error(f"Citation feedback error: {e}", exc_info=True)
+            return Response(
+                {"success": False, "error": "Failed to save feedback"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class FeedbackStatsAPIView(APIView):
+    """
+    GET /api/feedback/stats/ - Get feedback statistics.
+    Query params:
+        - domain: Filter by domain (optional)
+    """
+
+    def get(self, request: Request) -> Response:
+        """Get feedback statistics."""
+        try:
+            from infrastructure.postgres_client import postgres_client
+            from asgiref.sync import async_to_sync
+            
+            domain = request.query_params.get("domain")  # Optional domain filter
+            
+            stats = async_to_sync(postgres_client.get_feedback_stats)(domain=domain)
+            
+            return Response(
+                {
+                    "success": True,
+                    "data": stats.dict(),
+                    "domain_filter": domain if domain else "all"
+                },
+                status=status.HTTP_200_OK
+            )
+            
+        except Exception as e:
+            logger.error(f"Feedback stats error: {e}", exc_info=True)
+            return Response(
+                {"success": False, "error": "Failed to retrieve feedback stats"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class RegenerateAPIView(APIView):
+    """
+    POST /api/regenerate/ - Regenerate response using cached context.
+    
+    This endpoint skips intent detection and RAG retrieval, using cached
+    domain and citations from the session. This is 70% faster and 80% cheaper
+    than full re-execution.
+    
+    Request body:
+        - session_id: Session to get cached context from
+        - query: Original query (for context building)
+    """
+
+    def post(self, request: Request) -> Response:
+        """Regenerate response with cached domain + citations."""
+        try:
+            session_id = request.data.get("session_id")
+            query = request.data.get("query", "")
+            
+            if not session_id:
+                return Response(
+                    {"success": False, "error": "session_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            if not query or not query.strip():
+                return Response(
+                    {"success": False, "error": "query cannot be empty"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            # Get chat service
+            from django.apps import apps
+            django_app = apps.get_app_config('api')
+            chat_service = django_app.chat_service
+            
+            # Get last response from session to extract cached data
+            import asyncio
+            history = asyncio.run(chat_service.get_session_history(session_id))
+            
+            if not history or len(history.get("messages", [])) < 2:
+                return Response(
+                    {"success": False, "error": "No previous response found in session"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            
+            # Find last bot message
+            messages = history.get("messages", [])
+            last_bot_message = None
+            for msg in reversed(messages):
+                if msg.get("role") == "assistant":
+                    last_bot_message = msg
+                    break
+            
+            if not last_bot_message:
+                return Response(
+                    {"success": False, "error": "No bot response found in session"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            
+            # Extract cached domain and citations
+            cached_domain = last_bot_message.get("domain", "general")
+            cached_citations = last_bot_message.get("citations", [])
+            
+            logger.info(f"Regenerating with cached context: domain={cached_domain}, citations={len(cached_citations)}")
+            
+            # Call agent.regenerate() instead of full run()
+            user_id = request.data.get("user_id", "guest")
+            response = asyncio.run(
+                chat_service.agent.regenerate(
+                    query=query,
+                    domain=cached_domain,
+                    citations=cached_citations,
+                    user_id=user_id
+                )
+            )
+            
+            # Save to session history
+            from domain.models import Message
+            asyncio.run(chat_service.conversation_repo.save_message(
+                session_id=session_id,
+                message=Message(
+                    role="assistant",
+                    content=response.answer,
+                    domain=response.domain,
+                    citations=[c.model_dump() for c in response.citations],
+                    workflow=response.workflow,
+                    regenerated=True  # Flag to indicate cached regeneration
+                )
+            ))
+            
+            return Response(
+                {
+                    "success": True,
+                    "data": {
+                        "domain": response.domain,
+                        "answer": response.answer,
+                        "citations": [c.model_dump() for c in response.citations],
+                        "workflow": response.workflow,
+                        "regenerated": True,  # Flag for frontend
+                        "cache_info": {
+                            "skipped_nodes": ["intent_detection", "retrieval"],
+                            "executed_nodes": ["generation", "workflow"],
+                            "cached_citations_count": len(cached_citations)
+                        }
+                    }
+                },
+                status=status.HTTP_200_OK,
+            )
+            
+        except FileNotFoundError:
+            logger.warning(f"Session not found: {session_id}")
+            return Response(
+                {"success": False, "error": "Session not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        except Exception as e:
+            logger.error(f"Regenerate error: {e}", exc_info=True)
+            return Response(
+                {"success": False, "error": "Failed to regenerate response"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

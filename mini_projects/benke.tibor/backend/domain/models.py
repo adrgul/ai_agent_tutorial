@@ -23,6 +23,10 @@ class Message(BaseModel):
     content: str
     timestamp: datetime = Field(default_factory=datetime.now)
     metadata: Optional[Dict[str, Any]] = None
+    domain: Optional[str] = None  # Domain for caching (marketing, hr, it, etc.)
+    citations: Optional[List[Dict[str, Any]]] = None  # Citations for caching
+    workflow: Optional[Dict[str, Any]] = None  # Workflow state
+    regenerated: bool = False  # Flag indicating cached regeneration
 
 
 class Citation(BaseModel):
@@ -94,6 +98,10 @@ class QueryResponse(BaseModel):
     tools_used: List[ToolCall] = Field(default_factory=list)
     workflow: Optional[Dict[str, Any]] = None
     confidence: float = 1.0
+    # Telemetry fields (optional, for debug)
+    rag_context: Optional[str] = None
+    llm_prompt: Optional[str] = None
+    llm_response: Optional[str] = None
 
     class Config:
         json_schema_extra = {
@@ -121,3 +129,71 @@ class Memory(BaseModel):
     chat_history: List[Message] = Field(default_factory=list)
     preferences: Dict[str, Any] = Field(default_factory=dict)
     workflow_state: WorkflowState = Field(default_factory=WorkflowState)
+
+
+class FeedbackType(str, Enum):
+    """Feedback types."""
+    LIKE = "like"
+    DISLIKE = "dislike"
+
+
+class CitationFeedback(BaseModel):
+    """User feedback on a specific citation."""
+    id: Optional[str] = None
+    citation_id: str  # Qdrant point ID
+    domain: str
+    user_id: str
+    session_id: str
+    query_text: str
+    query_embedding: Optional[List[float]] = None  # 1536-dim OpenAI embedding
+    feedback_type: FeedbackType
+    citation_rank: Optional[int] = None  # Position in results (1-5)
+    timestamp: datetime = Field(default_factory=datetime.now)
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "citation_id": "6519535e-e4fb-052c-4780-8f926c699e34",
+                "domain": "marketing",
+                "user_id": "emp_001",
+                "session_id": "sess_123",
+                "query_text": "Mi a brand guideline?",
+                "feedback_type": "like",
+                "citation_rank": 1
+            }
+        }
+
+
+class ResponseFeedback(BaseModel):
+    """User feedback on entire response."""
+    id: Optional[str] = None
+    user_id: str
+    session_id: str
+    query_text: str
+    domain: str
+    feedback_type: FeedbackType
+    comment: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.now)
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "user_id": "emp_001",
+                "session_id": "sess_123",
+                "query_text": "Mi a brand guideline?",
+                "domain": "marketing",
+                "feedback_type": "like"
+            }
+        }
+
+
+class FeedbackStats(BaseModel):
+    """Aggregated feedback statistics."""
+    total_feedbacks: int
+    like_count: int
+    dislike_count: int
+    like_ratio: float
+    by_domain: Dict[str, Dict[str, int]] = Field(default_factory=dict)
+    top_liked_citations: List[Dict[str, Any]] = Field(default_factory=list)
+    top_disliked_citations: List[Dict[str, Any]] = Field(default_factory=list)
+

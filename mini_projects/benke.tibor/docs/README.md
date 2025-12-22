@@ -13,11 +13,14 @@ KnowledgeRouter egy vállalati belső tudásbázis rendszer, amely:
 ✅ **Hibrid keresés support** szemantikus (dense vectors) + domain filtering (lexikális BM25 ready)  
 ✅ **Intent detection** segítségével felismeri, melyik domain-hez tartozik a kérdés  
 ✅ **RAG (Retrieval-Augmented Generation)** használ releváns dokumentumok megtalálásához  
+✅ **Redis cache** embedding és query result cache-eléssel (54% hit rate, domain-scoped invalidation)  
 ✅ **Google Drive integráció** marketing dokumentumok eléréséhez  
 ✅ **Workflow-okat** futtat (HR szabadság igénylés, IT ticket, stb.)  
 ✅ **Citációkkal** ellátott válaszokat ad (dokumentum referenciák)  
+✅ **Like/Dislike feedback rendszer** (PostgreSQL, domain-scoped analytics, materialized views)  
 ✅ **Konverzáció előzményt** mentesít JSON-ban  
-✅ **Docker-ben** futtatható
+✅ **Token tracking** és költség kalkuláció  
+✅ **Docker-ben** futtatható (Uvicorn ASGI, async support)
 
 ## 📋 Tech Stack
 
@@ -25,8 +28,9 @@ KnowledgeRouter egy vállalati belső tudásbázis rendszer, amely:
 - **LLM**: OpenAI GPT-4o Mini (gpt-4o-mini)
 - **Vector DB**: Qdrant (self-hosted)
 - **Cache**: Redis 7 (embedding + query result cache)
+- **Database**: PostgreSQL 15 (feedback system)
 - **Frontend**: Tailwind CSS + Vanilla JavaScript (ChatGPT-style UI)
-- **Deployment**: Docker Compose
+- **Deployment**: Docker Compose (Uvicorn ASGI server)
 
 ## 🚀 Quick Start (Docker)
 
@@ -81,7 +85,9 @@ docker-compose up --build
 - **Backend API**: http://localhost:8001/api/
 - **Qdrant Dashboard**: http://localhost:6334 (vector DB)
 - **Redis**: localhost:6380 (cache)
+- **PostgreSQL**: localhost:5433 (feedback database)
 - **Cache Stats**: http://localhost:8001/api/cache-stats/
+- **Feedback Stats**: http://localhost:8001/api/feedback/stats/
 - **Google Drive Files API**: http://localhost:8001/api/google-drive/files/
 
 ### 5. Google Drive Setup (opcionális)
@@ -1016,6 +1022,7 @@ docker-compose up --build
 
 ## 📚 Kapcsolódó Dokumentumok
 
+- [**Feature List (FEATURES.md)**](FEATURES.md) - **🆕 Teljes feature lista implementációs részletekkel**
 - [Installation Guide](../INSTALLATION.md)
 - [API Documentation](API.md) - REST API endpoints, cache-stats
 - [Redis Cache Architecture](REDIS_CACHE.md) - Cache stratégia, invalidálás, monitoring
@@ -1036,14 +1043,18 @@ docker-compose up --build
 - [x] Unit tesztek (61 teszt, 87-100% coverage)
 - [x] Hibakezelés (retry logic, exponential backoff)
 - [x] Multi-domain workflows (HR szabadság, IT ticket)
+- [x] **Like/Dislike feedback system** (Postgres + background threading)
+- [x] **Citation feedback API** (/api/feedback/citation/, /api/feedback/stats/)
+- [x] **Domain-scoped feedback aggregation** (materialized views)
 
 ### 🚧 Tervezett
-- [ ] Like/Dislike feedback system (Postgres + Redis cache)
-- [ ] Citation re-ranking (semantic relevance)
+- [ ] Frontend UI feedback buttons (👍👎 per citation)
+- [ ] Citation re-ranking (feedback-weighted semantic relevance)
+- [ ] Query embedding context-aware feedback scoring
 - [ ] Multi-query generation (5 variáció, frequency ranking)
 - [ ] BM25 sparse vectors (lexikális keresés)
 - [ ] Monitoring & logging (Prometheus + Grafana)
-- [ ] Integration tesztek (E2E multi-domain RAG)
+- [ ] Integration tesztek (E2E multi-domain RAG + feedback)
 - [ ] Slack integration
 - [ ] Frontend React version (optional)
 
