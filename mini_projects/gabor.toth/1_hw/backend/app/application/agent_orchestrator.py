@@ -1,4 +1,3 @@
-from datetime import date
 from .briefing_service import BriefingService
 from ..domain.models import CityBriefingResponse
 
@@ -13,11 +12,9 @@ class AgentOrchestrator:
         self,
         city: str,
         activity: str = None,
-        briefing_date: date = None,
     ) -> CityBriefingResponse:
         """Execute the briefing generation pipeline."""
         return await self.briefing_service.generate_briefing(
             city=city,
             activity=activity,
-            briefing_date=briefing_date,
         )
