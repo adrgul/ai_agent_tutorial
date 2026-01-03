@@ -425,10 +425,6 @@ Key dependencies (see `pyproject.toml`):
 - `chromadb` - Vector database
 - `python-dotenv` - Environment variable management
 
-### Testing
-
-Currently, the project does not have automated tests. Contributions welcome!
-
 ### Contributing
 
 1. Create a feature branch
@@ -475,24 +471,6 @@ Extend `markdown_chunker.py` to support other formats (e.g., PDF, TXT).
 - **No Caching**: Embeddings and completions not cached between sessions
 - **Limited Context Window**: May hit token limits with very long documents or conversations
 
-### Future Improvements
-
-Potential enhancements:
-- [ ] Add persistent ChromaDB storage
-- [ ] Support additional document formats (PDF, DOCX, HTML)
-- [ ] Implement automated testing
-- [ ] Add conversation history persistence
-- [ ] Create web interface (FastAPI/Flask)
-- [ ] Implement response caching
-- [ ] Add document re-ranking for better retrieval
-- [ ] Support for larger context windows
-- [ ] Add streaming responses
-- [ ] Implement user authentication
-- [ ] Add document metadata filtering
-- [ ] Support for custom embedding models (local/Hugging Face)
-
 ## License
 
 This project is provided as-is for educational purposes. No specific license has been assigned.
-
-For questions or contributions, please contact the project maintainer.
