@@ -121,3 +121,38 @@ class CLI:
 
             uid, neighbors = self.app.process_query(text, k=k, mode=mode, alpha=alpha)
             self._print_results(uid, neighbors)
+
+    def process_directory(self, data_dir: str, k: int = 3, mode: str = "hybrid", alpha: float = 0.5) -> None:
+        """Process all text/markdown files in `data_dir`: embed, store and run search.
+
+        This is a batch mode alternative to the interactive CLI. It reads files
+        (extensions .md, .txt) and calls `process_query` for each file's content.
+        """
+        import os
+
+        if not os.path.isdir(data_dir):
+            print(f"Data directory not found: {data_dir}")
+            return
+
+        files = [f for f in os.listdir(data_dir) if f.endswith((".md", ".txt"))]
+        if not files:
+            print(f"No .md or .txt files found in {data_dir}")
+            return
+
+        print(f"Processing {len(files)} files from {data_dir} (mode={mode}, k={k}, alpha={alpha})")
+        for fname in files:
+            path = os.path.join(data_dir, fname)
+            try:
+                with open(path, "r", encoding="utf-8") as fh:
+                    content = fh.read().strip()
+            except Exception as exc:
+                print(f"Failed to read {path}: {exc}")
+                continue
+
+            if not content:
+                print(f"Skipping empty file: {path}")
+                continue
+
+            uid, neighbors = self.app.process_query(content, k=k, mode=mode, alpha=alpha)
+            print("\nFile:", fname)
+            self._print_results(uid, neighbors)

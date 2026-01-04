@@ -19,6 +19,7 @@ from .config import load_config
 from .embeddings import OpenAIEmbeddingService
 from .vector_store import ChromaVectorStore
 from .cli import CLI
+import os
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -36,8 +37,14 @@ def main(argv: list[str] | None = None) -> int:
     vector_store = ChromaVectorStore(persist_dir=cfg.chroma_persist_dir)
 
     cli = CLI(emb_service=emb_service, vector_store=vector_store)
+    # If a `data/` directory exists in the current working directory, process files in batch mode.
+    data_dir = os.path.join(os.getcwd(), "data")
     try:
-        cli.run()
+        if os.path.isdir(data_dir) and any(os.scandir(data_dir)):
+            # batch processing from data directory
+            cli.process_directory(data_dir)
+        else:
+            cli.run()
     except KeyboardInterrupt:
         print("\nExiting...")
 
