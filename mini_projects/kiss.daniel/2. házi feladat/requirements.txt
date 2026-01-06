@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+langgraph
+qdrant-client
+sentence-transformers
+httpx
+pydantic
+numpy
+torch
+python-dotenv
