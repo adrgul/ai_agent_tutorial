@@ -7,7 +7,7 @@ import httpx
 from typing import Dict, Any, Optional
 from domain.interfaces import (
     IWeatherClient, IGeocodeClient, IIPGeolocationClient, 
-    IFXRatesClient, ICryptoPriceClient
+    IFXRatesClient, ICryptoPriceClient, IMCPClient, IMCPWeatherClient
 )
 import logging
 
@@ -266,3 +266,203 @@ class CoinGeckoCryptoClient(ICryptoPriceClient):
             kwargs.get("symbol", "BTC"),
             kwargs.get("fiat", "USD")
         )
+
+
+class MCPClient(IMCPClient):
+    """
+    Base MCP (Model Context Protocol) client implementation.
+    Connects to HTTP-based MCP servers via REST API.
+    Supports both DeepWiki and AlphaVantage MCP servers.
+    """
+    
+    def __init__(self):
+        self.server_url: Optional[str] = None
+        self.connected: bool = False
+        
+    async def connect(self, server_url: str) -> None:
+        """Connect to HTTP-based MCP server."""
+        try:
+            self.server_url = server_url
+            
+            # For HTTP-based MCP servers, just verify the URL is valid
+            # and test connectivity with a simple request
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                # Try to list tools as a connectivity test
+                try:
+                    response = await client.post(
+                        f"{server_url}/list_tools",
+                        json={}
+                    )
+                    if response.status_code == 200:
+                        self.connected = True
+                        logger.info(f"Connected to MCP server: {server_url}")
+                    else:
+                        logger.warning(f"MCP server responded with status {response.status_code}")
+                        self.connected = True  # Still mark as connected to try operations
+                except httpx.HTTPStatusError as e:
+                    logger.warning(f"HTTP error during connection test: {e}")
+                    self.connected = True  # Still mark as connected
+                except Exception as e:
+                    logger.warning(f"Connection test failed: {e}, marking as connected anyway")
+                    self.connected = True  # Optimistically mark as connected
+                    
+        except Exception as e:
+            logger.error(f"MCP connection error: {e}")
+            self.connected = False
+            raise
+    
+    async def list_tools(self) -> list:
+        """List all available tools from the MCP server via HTTP."""
+        if not self.connected:
+            raise ConnectionError("MCP client not connected to server")
+        
+        try:
+            logger.info("Listing tools from MCP server")
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    f"{self.server_url}/list_tools",
+                    json={}
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                # Handle different response formats
+                tools = result.get('tools', []) if isinstance(result, dict) else []
+                logger.info(f"Found {len(tools)} tools from MCP server")
+                
+                return [{
+                    "name": tool.get('name', ''),
+                    "description": tool.get('description', ''),
+                    "inputSchema": tool.get('inputSchema', {})
+            } for tool in tools]
+        except Exception as e:
+            logger.error(f"MCP list_tools error: {e}")
+            raise
+    
+    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Call a tool on the MCP server via HTTP."""
+        if not self.connected:
+            raise ConnectionError("MCP client not connected to server")
+        
+        try:
+            logger.info(f"MCP tool call: {name} with args {arguments}")
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.server_url}/call_tool",
+                    json={"name": name, "arguments": arguments}
+                )
+                response.raise_for_status()
+                result = response.json()
+                return result.get('content', result)
+        except Exception as e:
+            logger.error(f"MCP tool call error: {e}")
+            raise
+    
+    async def disconnect(self) -> None:
+        """Disconnect from MCP server."""
+        if self.connected:
+            try:
+                self.connected = False
+                logger.info(f"Disconnected from MCP server: {self.server_url}")
+            except Exception as e:
+                logger.warning(f"Error during disconnect: {e}")
+
+
+class MCPWeatherClient(IMCPWeatherClient):
+    """
+    # DeepWiki knowledge retrieval through the MCP protocol.
+    # Tools: ask_question, read_wiki_structure
+    # Server: https://mcp.deepwiki.com/mcp
+    
+    MCP-based DeepWiki service client.
+    Retrieves knowledge from DeepWiki through MCP protocol.
+    """
+    
+    MCP_SERVER_URL = "https://mcp.deepwiki.com/mcp"
+    TOOL_NAME = "ask_question"
+    
+    def __init__(self, geocode_client: IGeocodeClient, mcp_client: Optional[IMCPClient] = None):
+        self.geocode_client = geocode_client
+        self.mcp_client = mcp_client or MCPClient()
+        self._connected = False
+    
+    async def _ensure_connected(self) -> None:
+        """Ensure MCP client is connected to the deepwiki server."""
+        if not self._connected:
+            try:
+                await self.mcp_client.connect(self.MCP_SERVER_URL)
+                self._connected = True
+            except Exception as e:
+                logger.error(f"Failed to connect to MCP DeepWiki server: {e}")
+                raise ConnectionError(f"MCP DeepWiki server not reachable: {e}")
+    
+    async def get_forecast(self, city: Optional[str] = None, lat: Optional[float] = None, lon: Optional[float] = None) -> Dict[str, Any]:
+        """
+        Get information via DeepWiki MCP protocol.
+        
+        Handles:
+        - MCP server not reachable
+        - Tool not available
+        - Invalid arguments
+        """
+        try:
+            # If city is provided, geocode it first
+            if city and (lat is None or lon is None):
+                logger.info(f"Geocoding city for DeepWiki location query: {city}")
+                geo_result = await self.geocode_client.geocode(city)
+                if "error" in geo_result:
+                    logger.error(f"DeepWiki geocoding failed: {geo_result['error']}")
+                    return geo_result
+                lat = geo_result["latitude"]
+                lon = geo_result["longitude"]
+            
+            if lat is None or lon is None:
+                error_msg = "Either city or coordinates must be provided"
+                logger.error(f"DeepWiki invalid arguments: {error_msg}")
+                return {"error": error_msg}
+            
+            # Ensure MCP connection
+            try:
+                await self._ensure_connected()
+            except ConnectionError as e:
+                return {"error": f"MCP server not reachable: {str(e)}"}
+            
+            # Call MCP deepwiki tool - ask about weather information from knowledge base
+            try:
+                query = f"What is the weather like at coordinates {lat}, {lon}" if not city else f"What is the weather like in {city}"
+                logger.info(f"Calling DeepWiki MCP Tool with query: {query}")
+                result = await self.mcp_client.call_tool(
+                    name=self.TOOL_NAME,
+                    arguments={"question": query}
+                )
+                
+                # Transform MCP result to expected format
+                logger.info(f"DeepWiki MCP Tool returned data")
+                return {
+                    "location": {"latitude": lat, "longitude": lon},
+                    "current_temperature": result.get("answer", "N/A"),
+                    "hourly_forecast": {},
+                    "units": {},
+                    "deepwiki_answer": result.get("answer", "No information available")
+                }
+                
+            except NotImplementedError as e:
+                # Tool not available or not implemented
+                logger.error(f"DeepWiki Tool not available: {e}")
+                return {"error": f"DeepWiki tool not available: {str(e)}"}
+            except KeyError as e:
+                # Invalid response format
+                logger.error(f"DeepWiki Tool invalid response: {e}")
+                return {"error": f"Invalid arguments or response from DeepWiki tool: {str(e)}"}
+            except Exception as e:
+                # General tool execution error
+                logger.error(f"DeepWiki Tool execution error: {e}")
+                return {"error": f"DeepWiki tool error: {str(e)}"}
+                
+        except Exception as e:
+            logger.error(f"DeepWiki Tool error: {e}")
+            return {"error": str(e)}
+    
+    async def execute(self, **kwargs) -> Dict[str, Any]:
+        """Execute weather forecast via MCP."""
+        return await self.get_forecast(**kwargs)

@@ -99,6 +99,7 @@ class ChatResponse(BaseModel):
     logs: Optional[List[str]] = None
     rag_context: Optional[RAGContext] = None  # NEW: RAG context
     rag_metrics: Optional[RAGMetrics] = None  # NEW: RAG metrics
+    debug_logs: List[str] = Field(default_factory=list)  # NEW: Debug logs for MCP steps
 
 
 class ProfileUpdateRequest(BaseModel):

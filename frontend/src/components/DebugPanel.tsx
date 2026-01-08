@@ -9,6 +9,7 @@ interface DebugPanelProps {
   memorySnapshot: MemorySnapshot | null;
   ragContext?: RAGContext | null;
   ragMetrics?: RAGMetrics | null;
+  debugLogs?: string[];  // MCP debug steps
   isOpen: boolean;
   onToggle: () => void;
 }
@@ -18,6 +19,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
   memorySnapshot,
   ragContext,
   ragMetrics,
+  debugLogs,
   isOpen,
   onToggle,
 }) => {
@@ -30,6 +32,20 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
       {isOpen && (
         <div className="debug-panel">
           <h3>Debug Information</h3>
+          
+          {/* MCP Steps Section - Show at top for visibility */}
+          {debugLogs && debugLogs.length > 0 && (
+            <div className="debug-section">
+              <h4>🔌 MCP Steps</h4>
+              <div className="mcp-steps">
+                {debugLogs.map((log, idx) => (
+                  <div key={idx} className="mcp-step">
+                    {log}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           <div className="debug-section">
             <h4>Last Tools Used ({toolsUsed.length})</h4>

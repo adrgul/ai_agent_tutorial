@@ -19,6 +19,7 @@ function App() {
   const [memorySnapshot, setMemorySnapshot] = useState<MemorySnapshot | null>(null);
   const [ragContext, setRagContext] = useState<RAGContext | null>(null);
   const [ragMetrics, setRagMetrics] = useState<RAGMetrics | null>(null);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);  // MCP debug steps
   const [ragStats, setRagStats] = useState<{ documentCount: number; chunkCount: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -129,6 +130,10 @@ function App() {
       if (response.rag_metrics) {
         setRagMetrics(response.rag_metrics);
       }
+      // Extract debug logs (MCP steps)
+      if (response.debug_logs) {
+        setDebugLogs(response.debug_logs);
+      }
     } catch (err: any) {
       console.error('Error sending message:', err);
       setError(err.response?.data?.detail || err.message || 'An error occurred');
@@ -195,6 +200,7 @@ function App() {
           memorySnapshot={memorySnapshot}
           ragContext={ragContext}
           ragMetrics={ragMetrics}
+          debugLogs={debugLogs}
           isOpen={debugOpen}
           onToggle={() => setDebugOpen(!debugOpen)}
         />

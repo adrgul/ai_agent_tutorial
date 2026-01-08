@@ -19,7 +19,7 @@ from domain.interfaces import IUserRepository, IConversationRepository
 from infrastructure.repositories import FileUserRepository, FileConversationRepository
 from infrastructure.tool_clients import (
     OpenMeteoWeatherClient, NominatimGeocodeClient, IPAPIGeolocationClient,
-    ExchangeRateHostClient, CoinGeckoCryptoClient
+    ExchangeRateHostClient, CoinGeckoCryptoClient, MCPWeatherClient, MCPClient
 )
 from services.tools import (
     WeatherTool, GeocodeTool, IPGeolocationTool, FXRatesTool,
@@ -73,7 +73,18 @@ async def lifespan(app: FastAPI):
 
     # Initialize tool clients
     geocode_client = NominatimGeocodeClient()
+    
+    # Use direct OpenMeteo API client (MCP server not configured)
     weather_client = OpenMeteoWeatherClient(geocode_client)
+    logger.info("Initialized OpenMeteo Weather client")
+    
+    # Initialize MCP clients for external tool servers
+    mcp_client = MCPClient()
+    logger.info("Initialized MCP client for DeepWiki")
+    
+    alphavantage_mcp_client = MCPClient()
+    logger.info("Initialized MCP client for AlphaVantage")
+    
     ip_client = IPAPIGeolocationClient()
     fx_client = ExchangeRateHostClient()
     crypto_client = CoinGeckoCryptoClient()
@@ -148,7 +159,9 @@ async def lifespan(app: FastAPI):
         crypto_tool=crypto_tool,
         file_tool=file_tool,
         history_tool=history_tool,
-        rag_subgraph=rag_subgraph  # NEW: Pass RAG subgraph
+        rag_subgraph=rag_subgraph,  # NEW: Pass RAG subgraph
+        mcp_client=mcp_client,  # NEW: Pass MCP client for DeepWiki tools
+        alphavantage_mcp_client=alphavantage_mcp_client  # NEW: Pass MCP client for AlphaVantage
     )
     
     # Initialize chat service
