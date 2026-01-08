@@ -41,6 +41,11 @@ class AgentState(TypedDict, total=False):
     rag_context: Dict[str, Any]  # RAG context (rewritten_query, chunks, citations, etc.)
     rag_metrics: Dict[str, Any]  # RAG performance metrics
     skip_rag: bool  # Flag to skip RAG (e.g., for "reset context")
+    
+    # MCP Tools
+    deepwiki_tools: List[Dict[str, Any]]  # Tools fetched from DeepWiki MCP server
+    alphavantage_tools: List[Dict[str, Any]]  # Tools fetched from AlphaVantage MCP server
+    debug_logs: List[str]  # Debug information for frontend display
 
 
 class AIAgent:
@@ -61,7 +66,9 @@ class AIAgent:
         crypto_tool: CryptoPriceTool,
         file_tool: FileCreationTool,
         history_tool: HistorySearchTool,
-        rag_subgraph: Optional[Any] = None  # NEW: RAG subgraph
+        rag_subgraph: Optional[Any] = None,  # NEW: RAG subgraph
+        mcp_client: Optional[Any] = None,  # NEW: MCP client for DeepWiki tools
+        alphavantage_mcp_client: Optional[Any] = None  # NEW: MCP client for AlphaVantage
     ):
         self.llm = ChatOpenAI(
             model="gpt-4-turbo-preview",
@@ -82,6 +89,10 @@ class AIAgent:
 
         # Store RAG subgraph
         self.rag_subgraph = rag_subgraph
+        
+        # Store MCP clients
+        self.mcp_client = mcp_client
+        self.alphavantage_mcp_client = alphavantage_mcp_client
 
         # Build LangGraph workflow
         self.workflow = self._build_graph()
@@ -105,6 +116,10 @@ class AIAgent:
             workflow.add_node("rag_pipeline", self.rag_subgraph)
             logger.info("RAG pipeline integrated into agent graph")
 
+        # Add MCP tools fetching nodes (before agent decision)
+        workflow.add_node("fetch_alphavantage_tools", self._fetch_alphavantage_tools_node)
+        workflow.add_node("fetch_deepwiki_tools", self._fetch_deepwiki_tools_node)
+
         # Add nodes
         workflow.add_node("agent_decide", self._agent_decide_node)
         workflow.add_node("agent_finalize", self._agent_finalize_node)
@@ -113,13 +128,17 @@ class AIAgent:
         for tool_name in self.tools.keys():
             workflow.add_node(f"tool_{tool_name}", self._create_tool_node(tool_name))
 
-        # Set entry point - RAG pipeline if configured, otherwise agent_decide
+        # Set entry point - RAG pipeline if configured, otherwise fetch_alphavantage_tools
         if self.rag_subgraph is not None:
             workflow.set_entry_point("rag_pipeline")
-            # RAG pipeline → agent_decide
-            workflow.add_edge("rag_pipeline", "agent_decide")
+            # RAG pipeline → fetch_alphavantage_tools → fetch_deepwiki_tools → agent_decide
+            workflow.add_edge("rag_pipeline", "fetch_alphavantage_tools")
         else:
-            workflow.set_entry_point("agent_decide")
+            workflow.set_entry_point("fetch_alphavantage_tools")
+        
+        # AlphaVantage tools fetched first (currency data), then DeepWiki
+        workflow.add_edge("fetch_alphavantage_tools", "fetch_deepwiki_tools")
+        workflow.add_edge("fetch_deepwiki_tools", "agent_decide")
 
         # Add conditional edges from agent_decide
         workflow.add_conditional_edges(
@@ -140,6 +159,119 @@ class AIAgent:
 
         # Compile the workflow
         return workflow.compile()
+    
+    async def _fetch_alphavantage_tools_node(self, state: AgentState) -> AgentState:
+        """
+        Fetch available tools from AlphaVantage MCP server before agent decision.
+        
+        This node:
+        1. Connects to AlphaVantage MCP server
+        2. Fetches all available currency/financial tools
+        3. Stores them in state for agent to use
+        4. Runs FIRST before any other tool decisions
+        """
+        logger.info("Fetching tools from AlphaVantage MCP server")
+        
+        # Initialize debug logs if not exists
+        if "debug_logs" not in state:
+            state["debug_logs"] = []
+        
+        state["debug_logs"].append("[MCP] Starting AlphaVantage MCP server connection...")
+        
+        alphavantage_tools = []
+        
+        if self.alphavantage_mcp_client is None:
+            logger.warning("No AlphaVantage MCP client configured, skipping AlphaVantage tools fetch")
+            state["debug_logs"].append("[MCP] ⚠️ No AlphaVantage MCP client configured")
+            state["alphavantage_tools"] = []
+            return state
+        
+        try:
+            # Ensure connection to AlphaVantage MCP server
+            if not hasattr(self.alphavantage_mcp_client, 'connected') or not self.alphavantage_mcp_client.connected:
+                logger.info("Connecting to AlphaVantage MCP server: https://mcp.alphavantage.co/mcp?apikey=5BBQJA8GEYVQ228V")
+                state["debug_logs"].append("[MCP] Connecting to AlphaVantage server (https://mcp.alphavantage.co/mcp)...")
+                await self.alphavantage_mcp_client.connect("https://mcp.alphavantage.co/mcp?apikey=5BBQJA8GEYVQ228V")
+                state["debug_logs"].append("[MCP] ✓ Connected to AlphaVantage MCP server")
+            
+            # List all available tools from AlphaVantage
+            state["debug_logs"].append("[MCP] Fetching available tools from AlphaVantage...")
+            alphavantage_tools = await self.alphavantage_mcp_client.list_tools()
+            logger.info(f"Successfully fetched {len(alphavantage_tools)} tools from AlphaVantage MCP server")
+            
+            # Log tool names for debugging
+            tool_names = [tool.get("name", "unknown") for tool in alphavantage_tools]
+            logger.info(f"Available AlphaVantage tools: {tool_names}")
+            state["debug_logs"].append(f"[MCP] ✓ Fetched {len(alphavantage_tools)} tools from AlphaVantage: {', '.join(tool_names)}")
+            
+        except ConnectionError as e:
+            logger.error(f"Failed to connect to AlphaVantage MCP server: {e}")
+            state["debug_logs"].append(f"[MCP] ✗ Connection failed: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error fetching AlphaVantage tools: {e}")
+            state["debug_logs"].append(f"[MCP] ✗ Error fetching tools: {str(e)}")
+        
+        # Store tools in state for agent to use
+        state["alphavantage_tools"] = alphavantage_tools
+        
+        return state
+    
+    async def _fetch_deepwiki_tools_node(self, state: AgentState) -> AgentState:
+        """
+        Fetch available tools from DeepWiki MCP server before agent decision.
+        
+        This node:
+        1. Connects to DeepWiki MCP server
+        2. Fetches all available tools
+        3. Stores them in state for agent to use
+        4. The agent will then select relevant tools based on user prompt
+        """
+        logger.info("Fetching tools from DeepWiki MCP server")
+        
+        # Initialize debug logs if not exists
+        if "debug_logs" not in state:
+            state["debug_logs"] = []
+        
+        state["debug_logs"].append("[MCP] Starting DeepWiki MCP server connection...")
+        
+        deepwiki_tools = []
+        
+        if self.mcp_client is None:
+            logger.warning("No MCP client configured, skipping DeepWiki tools fetch")
+            state["debug_logs"].append("[MCP] ⚠️ No DeepWiki MCP client configured")
+            state["deepwiki_tools"] = []
+            return state
+        
+        try:
+            # Ensure connection to DeepWiki MCP server
+            if not hasattr(self.mcp_client, 'connected') or not self.mcp_client.connected:
+                logger.info("Connecting to DeepWiki MCP server: https://mcp.deepwiki.com/mcp")
+                state["debug_logs"].append("[MCP] Connecting to DeepWiki server (https://mcp.deepwiki.com/mcp)...")
+                await self.mcp_client.connect("https://mcp.deepwiki.com/mcp")
+                state["debug_logs"].append("[MCP] ✓ Connected to DeepWiki MCP server")
+            
+            # List all available tools from DeepWiki
+            state["debug_logs"].append("[MCP] Fetching available tools from DeepWiki...")
+            deepwiki_tools = await self.mcp_client.list_tools()
+            logger.info(f"Successfully fetched {len(deepwiki_tools)} tools from DeepWiki MCP server")
+            
+            # Log tool names for debugging
+            tool_names = [tool.get("name", "unknown") for tool in deepwiki_tools]
+            logger.info(f"Available DeepWiki tools: {tool_names}")
+            state["debug_logs"].append(f"[MCP] ✓ Fetched {len(deepwiki_tools)} tools from DeepWiki: {', '.join(tool_names)}")
+            state["debug_logs"].append(f"[MCP] ✓ Fetched {len(deepwiki_tools)} tools from DeepWiki: {', '.join(tool_names)}")
+            
+        except ConnectionError as e:
+            logger.error(f"Failed to connect to DeepWiki MCP server: {e}")
+            state["debug_logs"].append(f"[MCP] ✗ Connection failed: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error fetching DeepWiki tools: {e}")
+            state["debug_logs"].append(f"[MCP] ✗ Error fetching tools: {str(e)}")
+        
+        # Store tools in state for agent to use
+        state["deepwiki_tools"] = deepwiki_tools
+        
+        return state
     
     async def _agent_decide_node(self, state: AgentState) -> AgentState:
         """
@@ -493,7 +625,8 @@ User preferences:
             # NEW: RAG state fields
             "skip_rag": skip_rag,
             "rag_context": {},
-            "rag_metrics": {}
+            "rag_metrics": {},
+            "debug_logs": []  # MCP debug logs
         }
         
         # Run workflow with increased recursion limit for multi-step workflows

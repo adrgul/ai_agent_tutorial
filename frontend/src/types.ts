@@ -69,6 +69,7 @@ export interface ChatResponse {
   logs?: string[];
   rag_context?: RAGContext;
   rag_metrics?: RAGMetrics;
+  debug_logs?: string[];  // MCP debug steps
 }
 
 export interface ChatMessage {

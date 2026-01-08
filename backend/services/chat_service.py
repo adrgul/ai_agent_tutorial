@@ -88,6 +88,7 @@ class ChatService:
         agent_messages = agent_result["messages"]
         rag_context = agent_result.get("rag_context", {})  # NEW
         rag_metrics = agent_result.get("rag_metrics", {})  # NEW
+        debug_logs = agent_result.get("debug_logs", [])  # NEW: MCP debug logs
 
         # Persist all messages from agent (system messages, tool messages, assistant message)
         for msg in agent_messages:
@@ -171,7 +172,8 @@ class ChatService:
             memory_snapshot=memory_snapshot,
             logs=[f"Tools called: {len(tools_called)}"],
             rag_context=rag_context_response,  # NEW
-            rag_metrics=rag_metrics_response   # NEW
+            rag_metrics=rag_metrics_response,   # NEW
+            debug_logs=debug_logs  # NEW: MCP debug information
         )
     
     async def _handle_reset_context(self, user_id: str, session_id: str) -> ChatResponse:

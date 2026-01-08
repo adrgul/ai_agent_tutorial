@@ -453,7 +453,32 @@ body {
   border-radius: 0.25rem;
   overflow-x: auto;
 }
+/* MCP Steps styling */
+.mcp-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
 
+.mcp-step {
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  background-color: #2a2b32;
+  border-left: 3px solid #10a37f;
+  border-radius: 0.25rem;
+  color: #ececf1;
+}
+
+.mcp-step:has(✗),
+.mcp-step:has(\u2717) {
+  border-left-color: #ef4444;
+}
+
+.mcp-step:has(⚠️),
+.mcp-step:has(\u26a0\ufe0f) {
+  border-left-color: #f59e0b;
+}
 /* Error banner */
 .error-banner {
   background-color: #ef4444;

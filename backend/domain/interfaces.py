@@ -74,6 +74,39 @@ class IWeatherClient(IToolClient):
         pass
 
 
+class IMCPClient(ABC):
+    """Base interface for MCP (Model Context Protocol) client."""
+    
+    @abstractmethod
+    async def connect(self, server_url: str) -> None:
+        """Connect to MCP server."""
+        pass
+    
+    @abstractmethod
+    async def list_tools(self) -> List[Dict[str, Any]]:
+        """List all available tools from the MCP server."""
+        pass
+    
+    @abstractmethod
+    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Call a tool on the MCP server."""
+        pass
+    
+    @abstractmethod
+    async def disconnect(self) -> None:
+        """Disconnect from MCP server."""
+        pass
+
+
+class IMCPWeatherClient(IWeatherClient):
+    """Interface for MCP-based weather service."""
+    
+    @abstractmethod
+    async def get_forecast(self, city: Optional[str] = None, lat: Optional[float] = None, lon: Optional[float] = None) -> Dict[str, Any]:
+        """Get weather forecast via MCP protocol."""
+        pass
+
+
 class IGeocodeClient(IToolClient):
     """Interface for geocoding service."""
     

@@ -1,5 +1,5 @@
 """
-Service layer - LangGraph agent tools implementation.
+Service layer - LangGraph agent tools implementation using LangChain tool format.
 Following SOLID: Single Responsibility - each tool wrapper has one clear purpose.
 """
 from typing import Dict, Any, Optional
@@ -7,6 +7,9 @@ from pathlib import Path
 import json
 from datetime import datetime
 import logging
+
+from langchain_core.tools import tool, StructuredTool
+from pydantic import BaseModel, Field
 
 from domain.interfaces import (
     IWeatherClient, IGeocodeClient, IIPGeolocationClient,
@@ -16,8 +19,18 @@ from domain.interfaces import (
 logger = logging.getLogger(__name__)
 
 
+# Tool dependency holders (for injection)
+_weather_client: Optional[IWeatherClient] = None
+_geocode_client: Optional[IGeocodeClient] = None
+_ip_client: Optional[IIPGeolocationClient] = None
+_fx_client: Optional[IFXRatesClient] = None
+_crypto_client: Optional[ICryptoPriceClient] = None
+_conversation_repo: Optional[IConversationRepository] = None
+_file_data_dir: str = "data/files"
+
+
 class WeatherTool:
-    """Weather forecast tool."""
+    """Weather forecast tool using MCP Weather Tool."""
     
     def __init__(self, client: IWeatherClient):
         self.client = client
@@ -25,8 +38,8 @@ class WeatherTool:
         self.description = "Get weather forecast for a city or coordinates. Useful when user asks about weather, temperature, or forecast."
     
     async def execute(self, city: Optional[str] = None, lat: Optional[float] = None, lon: Optional[float] = None) -> Dict[str, Any]:
-        """Get weather forecast."""
-        logger.info(f"Weather tool called: city={city}, lat={lat}, lon={lon}")
+        """Get weather forecast via MCP Weather Tool."""
+        logger.info(f"MCP Weather Tool called: city={city}, lat={lat}, lon={lon}")
         result = await self.client.get_forecast(city=city, lat=lat, lon=lon)
         
         if "error" not in result:
@@ -56,13 +69,13 @@ class WeatherTool:
                         "avg_temp": tomorrow_avg
                     } if tomorrow_avg else None
                 },
-                "system_message": f"Fetched weather forecast for location ({result['location']['latitude']}, {result['location']['longitude']}). {summary}"
+                "system_message": f"Fetched weather forecast via MCP Weather Tool for location ({result['location']['latitude']}, {result['location']['longitude']}). {summary}"
             }
         else:
             return {
                 "success": False,
                 "error": result["error"],
-                "system_message": f"Failed to fetch weather: {result['error']}"
+                "system_message": f"Failed to fetch weather via MCP Weather Tool: {result['error']}"
             }
 
 
