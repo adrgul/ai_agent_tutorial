@@ -28,6 +28,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading }) =
           <div className="prompt-item-new">&nbsp;&nbsp;&nbsp;&nbsp;• "Listázd, hogy mely paragrafusok foglalkoznak az egyetemes szolgáltatóval"</div>
           <div className="prompt-item-new">&nbsp;&nbsp;&nbsp;&nbsp;• "Hány fajta engedély típus létezik?"</div>
           <div className="prompt-item-new">&nbsp;&nbsp;&nbsp;&nbsp;• "Mire van felhatalmazása a MEKH-nek (Hivatal) és mely pontok szerint?"</div>
+            <div style={{ marginTop: '1.5em' }} />
+            <div className="prompt-item-new"><b>Gázmennyiség lekérdező:</b></div>
+            <div className="prompt-item-new">&nbsp;&nbsp;&nbsp;&nbsp;• "Lekérdezem a 2023. évi gázmennyiséget Dravaszerdahely exit pontra 2023-01-01 és 2023-07-01 között"</div>
+            <div className="prompt-item-new">&nbsp;&nbsp;&nbsp;&nbsp;• "Mennyi gázt exportáltak Balassagyarmat exit ponton 2022-ben?"</div>
         </div>
       ) : (
         <>
