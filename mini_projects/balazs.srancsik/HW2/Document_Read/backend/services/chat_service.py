@@ -111,7 +111,8 @@ class ChatService:
             {
                 "name": tc.tool_name,
                 "arguments": tc.arguments,
-                "success": tc.error is None
+                "success": tc.error is None,
+                "system_message": tc.system_message
             }
             for tc in tools_called
         ]

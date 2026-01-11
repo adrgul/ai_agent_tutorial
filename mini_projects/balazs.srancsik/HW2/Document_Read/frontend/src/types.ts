@@ -19,6 +19,7 @@ export interface ToolUsed {
   name: string;
   arguments: Record<string, any>;
   success: boolean;
+  system_message?: string;
 }
 
 export interface MemorySnapshot {

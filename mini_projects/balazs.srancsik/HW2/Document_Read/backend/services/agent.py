@@ -274,7 +274,8 @@ IMPORTANT: The "action" field must ALWAYS be either "call_tool" or "final_answer
                     tool_name=tool_name,
                     arguments=arguments,
                     result=result.get("data") if result.get("success") else None,
-                    error=result.get("error") if not result.get("success") else None
+                    error=result.get("error") if not result.get("success") else None,
+                    system_message=result.get("system_message")
                 )
                 state["tools_called"].append(tool_call)
                 
@@ -302,50 +303,127 @@ IMPORTANT: The "action" field must ALWAYS be either "call_tool" or "final_answer
         
         return tool_node
     
+    def _detect_question_language(self, text: str) -> str:
+        """
+        Detect the language of a question using lingua-language-detector.
+        Returns ISO 639-1 language code (e.g., 'en', 'hu', 'de', 'fr').
+        """
+        if not text or len(text.strip()) < 3:
+            return "en"
+        
+        try:
+            from lingua import Language, LanguageDetectorBuilder
+            
+            # Build detector with minimum relative distance for better accuracy
+            detector = LanguageDetectorBuilder.from_languages(
+                Language.ENGLISH,
+                Language.HUNGARIAN,
+                Language.GERMAN,
+                Language.FRENCH,
+                Language.SPANISH,
+                Language.ITALIAN,
+                Language.PORTUGUESE,
+                Language.RUSSIAN
+            ).with_minimum_relative_distance(0.15).build()
+            
+            # Detect language
+            detected = detector.detect_language_of(text)
+            
+            if detected is None:
+                logger.warning(f"Could not detect language for: '{text[:50]}...', defaulting to English")
+                return "en"
+            
+            # Map lingua Language enum to ISO 639-1 codes
+            lang_map = {
+                Language.ENGLISH: "en",
+                Language.HUNGARIAN: "hu",
+                Language.GERMAN: "de",
+                Language.FRENCH: "fr",
+                Language.SPANISH: "es",
+                Language.ITALIAN: "it",
+                Language.PORTUGUESE: "pt",
+                Language.RUSSIAN: "ru"
+            }
+            
+            lang_code = lang_map.get(detected, "en")
+            logger.info(f"Detected question language by lingua: {detected.name} ({lang_code})")
+            return lang_code
+            
+        except Exception as e:
+            logger.error(f"Language detection error: {e}, defaulting to English")
+            return "en"
+    
+    async def _translate_response_if_needed(self, response_text: str, target_lang: str) -> str:
+        """
+        Translate response to target language if needed.
+        """
+        try:
+            from langchain_core.messages import HumanMessage, SystemMessage
+            
+            lang_names = {
+                'en': 'English',
+                'hu': 'Hungarian', 
+                'de': 'German',
+                'fr': 'French',
+                'es': 'Spanish'
+            }
+            
+            target_lang_name = lang_names.get(target_lang, 'English')
+            
+            messages = [
+                SystemMessage(content=f"You are a professional translator. Translate the following text to {target_lang_name}. Preserve all formatting, markdown, and structure. Only output the translation, nothing else."),
+                HumanMessage(content=response_text)
+            ]
+            
+            translation = await self.llm.ainvoke(messages)
+            logger.info(f"Translated final response to {target_lang_name}")
+            return translation.content.strip()
+            
+        except Exception as e:
+            logger.error(f"Translation error in finalize: {e}")
+            return response_text
+    
     async def _agent_finalize_node(self, state: AgentState) -> AgentState:
         """
-        Agent finalize node: Generates final response to user.
+        Agent finalize node: Generate final natural language response.
         """
         logger.info("Agent finalize node executing")
         
-        # Build final prompt with memory and tool results
-        system_prompt = self._build_system_prompt(state["memory"])
-        
-        # Get the user's original message to detect language
+        # Get the CURRENT user's message (last HumanMessage)
         user_message = ""
-        for msg in state["messages"]:
+        for msg in reversed(state["messages"]):
             if isinstance(msg, HumanMessage):
                 user_message = msg.content
                 break
         
-        # Detect language of the user's question
-        user_message_lower = user_message.lower()
-        # Use word boundaries to avoid false matches
-        import re
+        # Detect the language of the CURRENT question
+        detected_lang = self._detect_question_language(user_message)
+        logger.info(f"Detected current question language: {detected_lang} for question: '{user_message[:50]}...'")
         
-        # Check for Hungarian-specific words first (more specific)
-        hungarian_words = r'\b(ki|kicsoda|mi|milyen|hol|mikor|miért|hogy|hogyan|van|vannak|volt|lesz|lennék|könyv|könyvben|könyvről)\b'
-        english_words = r'\b(who|what|where|when|why|how|is|are|was|were|the|book|can|could|would|should)\b'
+        # Build system prompt WITHOUT language preference override
+        system_prompt = """You are a helpful AI assistant with access to various tools.
         
-        hungarian_matches = len(re.findall(hungarian_words, user_message_lower))
-        english_matches = len(re.findall(english_words, user_message_lower))
-        
-        logger.info(f"Language detection: '{user_message[:50]}' - HU matches: {hungarian_matches}, EN matches: {english_matches}")
-        
-        if hungarian_matches > english_matches:
-            detected_language = "Hungarian"
-            language_instruction = "Válaszolj magyarul. A válasznak magyar nyelvűnek kell lennie."
-        else:
-            detected_language = "English"
-            language_instruction = "You MUST respond in English. Translate any Hungarian content to English."
-        
-        logger.info(f"Detected user question language: {detected_language}")
+Provide clear, accurate, and helpful responses based on the conversation context and tool results."""
         
         # Get conversation context
         conversation_history = "\n".join([
-            f"{msg.__class__.__name__}: {msg.content}"
+            f"{msg.__class__.__name__}: {msg.content[:200]}"
             for msg in state["messages"][-10:]  # Last 10 messages
         ])
+        
+        # Language instruction mapping - Note: Book tool handles its own language enforcement
+        lang_instructions = {
+            'en': "Respond in ENGLISH to match the user's question language.",
+            'hu': "Válaszolj MAGYARUL, hogy megfeleljen a felhasználó kérdésének.",
+            'de': "Antworten Sie auf DEUTSCH, um der Sprache der Frage des Benutzers zu entsprechen.",
+            'fr': "Répondez en FRANÇAIS pour correspondre à la langue de la question de l'utilisateur.",
+            'es': "Responde en ESPAÑOL para que coincida con el idioma de la pregunta del usuario.",
+            'it': "Rispondi in ITALIANO per corrispondere alla lingua della domanda dell'utente.",
+            'pt': "Responda em PORTUGUÊS para corresponder ao idioma da pergunta do usuário.",
+            'ru': "Отвечайте на РУССКОМ языке, чтобы соответствовать языку вопроса пользователя."
+        }
+        
+        lang_instruction = lang_instructions.get(detected_lang, lang_instructions['en'])
         
         final_prompt = f"""
 Generate a natural language response to the user based on the conversation history and any tool results.
@@ -353,14 +431,13 @@ Generate a natural language response to the user based on the conversation histo
 Conversation:
 {conversation_history}
 
-CRITICAL LANGUAGE INSTRUCTION:
-{language_instruction}
+Current user question: "{user_message}"
 
 Important:
+{lang_instruction}
 - Be helpful and conversational
 - Use information from tool results if available
 - Keep the response concise but complete
-- The user asked in {detected_language}, so your entire response must be in {detected_language}
 """
         
         messages = [
@@ -369,9 +446,18 @@ Important:
         ]
         
         response = await self.llm.ainvoke(messages)
+        response_text = response.content
+        
+        # CRITICAL: Verify response language matches question language
+        response_lang = self._detect_question_language(response_text)
+        logger.info(f"Response language detected: {response_lang}, Expected: {detected_lang}")
+        
+        if response_lang != detected_lang:
+            logger.warning(f"Language mismatch in final response! Translating from {response_lang} to {detected_lang}")
+            response_text = await self._translate_response_if_needed(response_text, detected_lang)
         
         # Add assistant message
-        state["messages"].append(AIMessage(content=response.content))
+        state["messages"].append(AIMessage(content=response_text))
         
         logger.info("Agent finalized response")
         

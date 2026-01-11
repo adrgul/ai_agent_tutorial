@@ -1,315 +1,621 @@
-# Streamlit + FastAPI RAG Chatbot Demo
+# Customer Service Triage and Response Agent
 
-A production-shaped demo RAG chatbot with:
-- **Frontend**: Streamlit chat UI
-- **Backend**: FastAPI REST API with auto-generated OpenAPI docs
-- **LLM**: OpenAI via LangChain (gpt-4.1-mini)
-- **RAG**: FAISS vector store indexing local Markdown files
-- **Observability**: LangSmith tracing + evaluation
+A production-ready AI agent that automatically triages customer service tickets, retrieves relevant knowledge base articles, and generates professional response drafts with citations.
+
+## Features
+
+- **Intent Detection**: Automatically detects problem type (billing, technical, account, feature request) and customer sentiment
+- **Smart Triage**: Classifies tickets by category, subcategory, priority (P1-P4), and assigns SLA timeframes
+- **RAG Retrieval**: Uses FAISS vector search with query expansion and LLM-based re-ranking
+- **Draft Generation**: Creates professional, empathetic responses with embedded KB citations
+- **Policy Validation**: Checks drafts for compliance with company policies
+- **RESTful API**: FastAPI-based API with automatic documentation
 
 ## Architecture
 
+### Tech Stack
+
+- **Backend**: Python 3.11+, FastAPI, Uvicorn
+- **LLM**: OpenAI GPT-4 (via LangChain)
+- **Vector DB**: FAISS (local)
+- **Embeddings**: OpenAI text-embedding-3-large (1536 dimensions)
+- **Workflow**: LangGraph for orchestration
+- **Validation**: Pydantic for data modeling
+
+### Workflow Pipeline
+
 ```
-┌─────────────┐      HTTP      ┌──────────────┐
-│  Streamlit  │ ────────────▶  │   FastAPI    │
-│     UI      │                │   Backend    │
-└─────────────┘                └──────┬───────┘
-                                      │
-                                      ▼
-                               ┌──────────────┐
-                               │ FAISS Vector │
-                               │    Store     │
-                               └──────────────┘
+┌─────────────────┐
+│  Ticket Input   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Intent Detection│  → Problem type + Sentiment
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Triage Node     │  → Priority + SLA + Team
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Query Expansion │  → Generate search queries
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Vector Search   │  → Retrieve top-k KB articles
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   Re-ranking    │  → LLM-based relevance scoring
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Draft Generator │  → Professional response with citations
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Policy Check   │  → Compliance validation
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  JSON Output    │  → Structured response
+└─────────────────┘
 ```
 
-## Key Features
+## Installation
 
-- **No conversation history**: Each question is answered independently
-- **Markdown-only**: Indexes `data/**/*.md` files
-- **Pydantic schemas**: Type-safe request/response contracts
-- **Comprehensive tests**: Pytest with fake embeddings/LLM (no network calls)
-- **LangSmith integration**: Tracing and evaluation support
+### Prerequisites
+
+- Python 3.11 or higher
+- OpenAI API key
+- pip or uv for dependency management
+
+### Setup
+
+1. **Clone the repository**
+
+```bash
+cd ai_support
+```
+
+2. **Create virtual environment**
+
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. **Install dependencies**
+
+Modern approach (recommended):
+
+```bash
+pip install -e ".[dev,test]"
+```
+
+Or using the traditional requirements file:
+
+```bash
+pip install -r requirements.txt
+```
+
+4. **Configure environment**
+
+Create a `.env` file in the root directory:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and add your OpenAI API key:
+
+```env
+OPENAI_API_KEY=your-actual-openai-api-key-here
+```
+
+5. **Initialize knowledge base**
+
+The knowledge base will be automatically initialized on first run with dummy data from `data/kb_articles.json`.
+
+### Quick Start with Makefile
+
+For convenience, you can use the provided Makefile:
+
+```bash
+# Install all dependencies and initialize KB
+make all
+
+# Or step by step:
+make install-dev  # Install with dev dependencies
+make init-kb      # Initialize knowledge base
+make run          # Run the API server
+```
+
+See all available commands:
+```bash
+make help
+```
+
+## Usage
+
+### Running the API
+
+**Using Makefile (recommended):**
+
+```bash
+make run    # Production mode
+make dev    # Development mode with auto-reload
+```
+
+**Or directly with Python:**
+
+```bash
+# Development mode (with auto-reload)
+python -m uvicorn app.main:app --reload
+
+# Production mode
+python app/main.py
+```
+
+**Using Docker:**
+
+```bash
+# Using docker-compose (recommended)
+docker-compose up
+
+# Or build and run manually
+docker build -t triage-agent .
+docker run -p 8000:8000 --env-file .env triage-agent
+```
+
+The API will be available at:
+- **API**: http://localhost:8000
+- **Interactive Docs**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+### API Endpoints
+
+#### POST /api/v1/triage
+
+Process a customer ticket through the complete triage workflow.
+
+**Request:**
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/triage" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_name": "John Doe",
+    "customer_email": "john.doe@example.com",
+    "subject": "Duplicate charge on my invoice",
+    "message": "I noticed I was charged twice for the same transaction on December 5th. The amount is $49.99. Can you please help me get a refund?"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "ticket_id": "TKT-2025-01-10-a3f2",
+  "timestamp": "2025-01-10T14:32:00Z",
+  "triage": {
+    "category": "Billing - Invoice Issue",
+    "subcategory": "Duplicate Charge",
+    "priority": "P2",
+    "sla_hours": 24,
+    "suggested_team": "Finance Team",
+    "sentiment": "frustrated",
+    "confidence": 0.92
+  },
+  "answer_draft": {
+    "greeting": "Dear John,",
+    "body": "Thank you for reaching out regarding the duplicate charge...",
+    "closing": "Best regards,\nSupport Team",
+    "tone": "empathetic_professional"
+  },
+  "citations": [
+    {
+      "doc_id": "KB-1234",
+      "chunk_id": "c-45",
+      "title": "How to Handle Duplicate Charges",
+      "score": 0.89,
+      "url": "https://kb.company.com/billing/duplicate-charges"
+    }
+  ],
+  "policy_check": {
+    "refund_promise": false,
+    "sla_mentioned": true,
+    "escalation_needed": false,
+    "compliance": "passed",
+    "warnings": []
+  }
+}
+```
+
+#### GET /api/v1/health
+
+Health check endpoint.
+
+```bash
+curl http://localhost:8000/api/v1/health
+```
+
+#### GET /api/v1/kb/stats
+
+Get knowledge base statistics.
+
+```bash
+curl http://localhost:8000/api/v1/kb/stats
+```
+
+### Example Requests
+
+**Billing Issue:**
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:8000/api/v1/triage",
+    json={
+        "customer_name": "Jane Smith",
+        "customer_email": "jane@example.com",
+        "subject": "Refund request",
+        "message": "I want to cancel my subscription and get a refund."
+    }
+)
+
+print(response.json())
+```
+
+**Technical Issue:**
+
+```python
+response = requests.post(
+    "http://localhost:8000/api/v1/triage",
+    json={
+        "customer_name": "Bob Johnson",
+        "customer_email": "bob@example.com",
+        "subject": "API timeout errors",
+        "message": "I'm getting TIMEOUT-500 errors when calling your API."
+    }
+)
+
+print(response.json())
+```
+
+## Testing
+
+### Run Tests
+
+**Using Makefile:**
+
+```bash
+make test          # Run all tests
+make test-cov      # Run with coverage report
+make test-verbose  # Run with verbose output
+```
+
+**Or directly with pytest:**
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=app --cov-report=html
+
+# Run specific test file
+pytest tests/test_models.py
+
+# Run with verbose output
+pytest -v
+```
+
+### Test Structure
+
+- `tests/test_api.py` - API endpoint tests
+- `tests/test_models.py` - Pydantic model validation tests
+- `tests/test_vector_store.py` - FAISS vector store tests
+
+**Note**: Some integration tests require an OpenAI API key and are skipped by default.
 
 ## Project Structure
 
 ```
-repo/
-  backend/
-    app/
-      main.py                 # FastAPI app entry point
-      api/                    # API route handlers
-        health.py
-        ingest.py
-        chat.py
-      core/                   # Configuration & utilities
-        config.py
-        logging.py
-      rag/                    # RAG pipeline components
-        loaders.py
-        chunking.py
-        embeddings.py
-        vectorstore.py
-        prompts.py
-        chain.py
-      schemas/                # Pydantic models
-        common.py
-        ingest.py
-        chat.py
-      tests/                  # Pytest tests
-        test_health.py
-        test_ingest_smoke.py
-        test_chat_requires_ingest.py
-        test_chat_contract.py
-      eval/                   # Evaluation scripts
-        run_eval.py
-    pyproject.toml
-    .env.example
-  frontend/
-    streamlit_app.py
-    .streamlit/
-      secrets.toml.example
-  data/                       # Put your .md files here
-  .vectorstore/               # Generated FAISS index (gitignored)
+ai_support/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                    # FastAPI application entry point
+│   ├── api/
+│   │   ├── __init__.py
+│   │   └── routes.py              # API endpoints
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config.py              # Settings and configuration
+│   │   └── dependencies.py        # Dependency injection
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── schemas.py             # Pydantic models
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── embeddings.py          # Embedding service
+│   │   ├── intent_detection.py   # Intent detection service
+│   │   ├── triage.py              # Triage classification
+│   │   ├── retrieval.py           # RAG retrieval (query expansion, search, re-rank)
+│   │   ├── draft_generator.py    # Response draft generator
+│   │   └── policy_checker.py     # Policy compliance checker
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   └── vector_store.py        # FAISS vector store wrapper
+│   └── workflows/
+│       ├── __init__.py
+│       └── langgraph_workflow.py  # LangGraph workflow orchestration
+├── data/
+│   ├── kb_articles.json           # Dummy knowledge base articles
+│   └── faiss_index/               # FAISS index storage (created on init)
+├── scripts/
+│   ├── __init__.py
+│   └── init_kb.py                 # KB initialization script
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py                # Pytest configuration
+│   ├── test_api.py                # API tests
+│   ├── test_models.py             # Model tests
+│   └── test_vector_store.py       # Vector store tests
+├── pyproject.toml                 # Project metadata and dependencies
+├── requirements.txt               # Python dependencies (legacy)
+├── Makefile                       # Development commands
+├── Dockerfile                     # Docker container definition
+├── docker-compose.yml             # Docker compose configuration
+├── .dockerignore                  # Docker ignore file
+├── .gitignore                     # Git ignore file
+├── .env.example                   # Environment variables template
+├── pytest.ini                     # Pytest configuration
+├── demo.py                        # Interactive demo script
+├── README.md                      # This file
+└── QUICKSTART.md                  # Quick start guide
 ```
 
-## Local Development
+## SOLID Principles Implementation
 
-### Prerequisites
+This project follows SOLID principles throughout:
 
-- Python 3.10+
-- OpenAI API key
-- (Optional) LangSmith API key for tracing
+### Single Responsibility Principle (SRP)
+- Each service class handles one specific concern
+- `IntentDetectionService` - Only intent detection
+- `TriageService` - Only triage classification
+- `RetrievalService` - Only document retrieval
+- `DraftGeneratorService` - Only draft generation
+- `PolicyCheckerService` - Only policy validation
 
-### Setup
+### Open/Closed Principle (OCP)
+- Services can be extended without modification
+- New workflow nodes can be added to LangGraph without changing existing ones
+- Vector store can be swapped (FAISS → Pinecone/Weaviate)
 
-1. **Clone and install backend dependencies**:
-   ```bash
-   cd backend
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -e ".[dev]"
-   ```
+### Liskov Substitution Principle (LSP)
+- All services implement consistent interfaces
+- Pydantic models ensure type safety
 
-2. **Configure environment**:
-   ```bash
-   cp .env.example .env
-   # Edit .env and add your OPENAI_API_KEY
-   ```
+### Interface Segregation Principle (ISP)
+- Models are focused and minimal
+- No model is forced to depend on unused fields
 
-3. **Add Markdown documents**:
-   ```bash
-   # Place your .md files in the data/ directory
-   cp your-docs/*.md ../data/
-   ```
-
-4. **Run backend**:
-   ```bash
-   uvicorn app.main:app --reload --port 8000
-   ```
-   The API will be available at http://localhost:8000
-   - Swagger docs: http://localhost:8000/docs
-   - OpenAPI spec: http://localhost:8000/openapi.json
-
-5. **Run frontend** (in a new terminal):
-   ```bash
-   cd frontend
-   streamlit run streamlit_app.py
-   ```
-   The UI will open at http://localhost:8501
-
-### First Time Usage
-
-1. Open the Streamlit UI
-2. Click "Ingest docs" in the sidebar to build the FAISS index
-3. Start asking questions!
-
-## API Endpoints
-
-### `GET /health`
-Check API health status.
-
-**Response**:
-```json
-{
-  "status": "ok"
-}
-```
-
-### `POST /ingest`
-Build or rebuild the FAISS vector index from Markdown files.
-
-**Request**:
-```json
-{
-  "force_rebuild": false  // Optional, default: false
-}
-```
-
-**Response**:
-```json
-{
-  "indexed_files": 3,
-  "chunk_count": 42,
-  "vectorstore_dir": "../.vectorstore/faiss_index",
-  "filenames": ["a.md", "notes/b.md", "notes/c.md"]
-}
-```
-
-**Errors**:
-- `400`: No markdown files found or DOCS_PATH missing
-
-### `POST /chat`
-Ask a question using RAG retrieval.
-
-**Request**:
-```json
-{
-  "session_id": "optional-string",  // Optional, for UI correlation only
-  "message": "What does the doc say about X?",
-  "top_k": 4,           // Optional, default: 4, range: 1-20
-  "temperature": 0.2    // Optional, default: 0.2, range: 0-1
-}
-```
-
-**Response**:
-```json
-{
-  "session_id": "optional-string",
-  "answer": "According to the documentation...",
-  "sources": [
-    {
-      "source_id": "a.md:0",
-      "filename": "a.md",
-      "snippet": "First ~240 chars of chunk content..."
-    }
-  ],
-  "model": "gpt-4.1-mini"
-}
-```
-
-**Errors**:
-- `409`: Vector store not found (call `/ingest` first)
-- `422`: Validation error
-
-## Testing
-
-Run tests with pytest:
-
-```bash
-cd backend
-pytest
-```
-
-Tests use fake embeddings and fake LLMs (no network calls or OpenAI costs).
-
-Key tests:
-- `test_health.py`: Health endpoint validation
-- `test_ingest_smoke.py`: End-to-end ingest with temp files
-- `test_chat_requires_ingest.py`: Ensures 409 when index missing
-- `test_chat_contract.py`: Contract validation with mocked LLM
-
-## LangSmith Integration
-
-### Tracing
-
-Enable runtime tracing by setting environment variables:
-
-```bash
-export LANGSMITH_TRACING=true
-export LANGSMITH_API_KEY=your-api-key
-export LANGSMITH_PROJECT=streamlit-fastapi-faiss-demo
-```
-
-Traces will appear in your LangSmith project dashboard.
-
-### Evaluation
-
-Run the evaluation script:
-
-```bash
-cd backend
-python -m app.eval.run_eval
-```
-
-This runs 5-10 test questions against the RAG pipeline and scores answers based on keyword presence.
-
-## Postman Testing
-
-Import the OpenAPI spec into Postman:
-1. Open Postman
-2. Import → Link: `http://localhost:8000/openapi.json`
-3. Test all endpoints with auto-generated request schemas
-
-## Deployment
-
-### Backend
-Deploy on any service that runs a Python web server:
-- Render
-- Fly.io
-- Google Cloud Run
-- Railway
-
-Example for Cloud Run:
-```bash
-gcloud run deploy rag-backend \
-  --source backend \
-  --set-env-vars OPENAI_API_KEY=your-key
-```
-
-### Frontend
-Deploy on Streamlit Community Cloud:
-
-1. Push to GitHub
-2. Connect repo in Streamlit Cloud
-3. Set secrets in dashboard:
-   ```toml
-   BACKEND_URL = "https://your-backend-url.com"
-   ```
-
-**Important**: Streamlit Cloud does not run FastAPI alongside the Streamlit app. Deploy them separately.
+### Dependency Inversion Principle (DIP)
+- High-level modules (API, workflows) depend on abstractions (services)
+- Dependency injection via FastAPI's `Depends()`
+- Settings managed via Pydantic Settings
 
 ## Configuration
 
-All configuration is managed via `backend/app/core/config.py`:
+All configuration is managed via environment variables (see `.env.example`):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENAI_API_KEY` | (required) | OpenAI API key |
-| `OPENAI_CHAT_MODEL` | `gpt-4.1-mini` | Chat completion model |
-| `OPENAI_EMBED_MODEL` | `text-embedding-3-small` | Embedding model |
-| `DOCS_PATH` | `../data` | Path to markdown files |
-| `VECTORSTORE_DIR` | `../.vectorstore/faiss_index` | FAISS index storage |
-| `LANGSMITH_TRACING` | `false` | Enable LangSmith tracing |
-| `LANGSMITH_API_KEY` | `None` | LangSmith API key |
-| `LANGSMITH_PROJECT` | `streamlit-fastapi-faiss-demo` | LangSmith project name |
+| `OPENAI_API_KEY` | Required | OpenAI API key |
+| `LLM_MODEL` | `gpt-4-turbo-preview` | OpenAI model for LLM operations |
+| `EMBEDDING_MODEL` | `text-embedding-3-large` | OpenAI embedding model |
+| `TEMPERATURE` | `0.3` | LLM temperature (0.0-1.0) |
+| `MAX_TOKENS` | `2000` | Max tokens for LLM responses |
+| `FAISS_INDEX_PATH` | `./data/faiss_index` | Path for FAISS index storage |
+| `TOP_K_RETRIEVAL` | `10` | Number of documents to retrieve |
+| `TOP_K_RERANK` | `3` | Number of documents after re-ranking |
+| `API_HOST` | `0.0.0.0` | API host |
+| `API_PORT` | `8000` | API port |
 
-## Design Decisions
+## Dummy Data
 
-### No Conversation History
-Each `/chat` request is stateless. `session_id` is accepted for UI correlation but not used for memory.
+The project includes 10 sample KB articles covering:
 
-**Why**: Keeps demo simple and avoids complexity of conversation state management.
+- Billing (duplicate charges, refunds, cancellations)
+- Account management (password reset, locked accounts)
+- Technical support (API errors, integrations, data export)
+- Feature requests
 
-### Markdown Only
-Only `**/*.md` files are indexed.
+Articles are in `data/kb_articles.json` and are automatically indexed on startup.
 
-**Why**: Constrains scope for demo; easy to extend to other formats later.
+## Performance Metrics
 
-### FAISS with Pickle Warning
-Uses `allow_dangerous_deserialization=True` when loading FAISS.
+Based on the specification goals:
 
-**Why**: Safe for self-generated indexes. Never use with untrusted files (pickle can execute code).
+| Metric | Target | Implementation |
+|--------|--------|----------------|
+| Triage Accuracy | 90%+ | LLM-based classification with confidence scores |
+| Draft Acceptance | 70%+ | Template-based with KB citations |
+| Response Time | < 10 min | Real-time processing (~5-15 seconds) |
+| SLA Compliance | 95%+ | Automated priority and SLA assignment |
+| Citation Precision | 95%+ | Re-ranking with LLM ensures relevance |
 
-### One Assert Per Function
-Each function has one assertion validating its core invariant.
+## Troubleshooting
 
-**Why**: Forces clarity about what each function guarantees; aids debugging.
+### Knowledge base not initialized
 
-### Heavy Comments
-Every module has extensive "why" comments.
+```bash
+# Check if FAISS index exists
+ls -la data/faiss_index/
 
-**Why**: Makes codebase educational and maintainable for demo purposes.
+# If missing, the app will create it on startup
+# Check logs for initialization status
+```
+
+### OpenAI API errors
+
+```bash
+# Verify API key is set
+echo $OPENAI_API_KEY
+
+# Check API key validity
+curl https://api.openai.com/v1/models \
+  -H "Authorization: Bearer $OPENAI_API_KEY"
+```
+
+### Import errors
+
+```bash
+# Reinstall dependencies
+pip install -r requirements.txt --force-reinstall
+```
+
+## Development
+
+### Code Quality
+
+**Using Makefile:**
+
+```bash
+make format      # Format code with black
+make lint        # Check code with ruff
+make lint-fix    # Auto-fix linting issues
+```
+
+**Or directly:**
+
+```bash
+# Format code
+black app/ tests/
+
+# Lint code
+ruff check app/ tests/
+
+# Fix linting issues
+ruff check --fix app/ tests/
+```
+
+### Adding New KB Articles
+
+Edit `data/kb_articles.json` and restart the application:
+
+```json
+{
+  "doc_id": "KB-NEW",
+  "title": "New Article Title",
+  "category": "Category",
+  "url": "https://kb.company.com/new-article",
+  "content": "Article content here..."
+}
+```
+
+Then rebuild the FAISS index:
+
+**Using Makefile:**
+```bash
+make rebuild-kb
+```
+
+**Or manually:**
+```bash
+rm -rf data/faiss_index/
+python app/main.py
+```
+
+## Production Deployment
+
+### Recommendations
+
+1. **Use production-grade vector DB**: Replace FAISS with Pinecone, Weaviate, or Qdrant
+2. **Add authentication**: Implement API key or JWT authentication
+3. **Rate limiting**: Add rate limiting middleware
+4. **Monitoring**: Add logging, metrics (Prometheus), and tracing (OpenTelemetry)
+5. **Caching**: Add Redis for caching LLM responses
+6. **Async processing**: Use Celery for background task processing
+7. **Database**: Add PostgreSQL for ticket history and analytics
+
+### Docker Deployment
+
+The project includes a production-ready Dockerfile and docker-compose configuration.
+
+**Using Docker Compose (recommended):**
+
+```bash
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+**Building manually:**
+
+```bash
+# Build image
+docker build -t customer-service-triage-agent .
+
+# Run container
+docker run -d \
+  -p 8000:8000 \
+  --env-file .env \
+  --name triage-agent \
+  customer-service-triage-agent
+
+# View logs
+docker logs -f triage-agent
+```
+
+**Using Makefile:**
+
+```bash
+make docker-build  # Build Docker image
+make docker-run    # Run Docker container
+```
+
+The Docker image includes:
+- Multi-stage build for smaller size
+- Health checks
+- Proper volume mounts for data persistence
+- Environment variable configuration
 
 ## License
 
-MIT
+MIT License
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+## Support
+
+For issues and questions:
+- GitHub Issues: [Create an issue]
+- Documentation: `/docs` endpoint when running
+
+---
+
+**Built with**: Python, FastAPI, LangChain, LangGraph, OpenAI, FAISS
+
+**POC/MVP Version** - Ready for demo and testing

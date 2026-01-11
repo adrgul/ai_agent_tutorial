@@ -37,13 +37,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading }) =
               <div className="prompt-item">&nbsp;&nbsp;&nbsp;&nbsp;• "Search for BBC radio"</div>
               <div className="prompt-item">&nbsp;&nbsp;&nbsp;&nbsp;• "Find rock stations from the USA"</div>
               <div className="prompt-item">&nbsp;&nbsp;&nbsp;&nbsp;• "Show me tags related to electronic musics"</div>
+              <div className="prompt-item">
+                📄 Pytest script and results are available in Test_Scripts_And_Logs folder.
+              </div>
             </details>
-            <details className="prompt-dropdown">
-              <summary className="prompt-item-new">• Homework 2: Document processing: Molnár Ferenc: Pál utcai fiúk, try these questions:</summary>
+            <details className="prompt-dropdown" open>
+              <summary className="prompt-item-new">• Homework 2: Document processing of Molnár Ferenc's Pál utcai fiúk, try these questions:</summary>
               <div className="prompt-item-new">&nbsp;&nbsp;&nbsp;&nbsp;• "Who is Nemecsek and what role does he play in the story?"</div>
               <div className="prompt-item-new">&nbsp;&nbsp;&nbsp;&nbsp;• "What is the 'grund' and why is it important to the boys?"</div>
               <div className="prompt-item-new">&nbsp;&nbsp;&nbsp;&nbsp;• "Describe the relationship between Nemecsek and Boka."</div>
               <div className="prompt-item-new">&nbsp;&nbsp;&nbsp;&nbsp;• "What conflict do the Paul Street Boys have with the Redshirts?"</div>
+              <div className="prompt-item-new">
+                📄 Pytest script and results are available in Test_Scripts_And_Logs folder.
+              </div>
             </details>
            
 

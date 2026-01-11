@@ -88,6 +88,7 @@ function App() {
       }
 
       // Add assistant message to UI
+      console.log('Tools used from response:', response.tools_used);
       const assistantMessage: ChatMessage = {
         id: `msg_${Date.now()}_assistant`,
         role: 'assistant',
@@ -95,6 +96,7 @@ function App() {
         timestamp: new Date(),
         toolsUsed: response.tools_used,
       };
+      console.log('Assistant message with tools:', assistantMessage);
 
       setMessages((prev) => (isReset ? [assistantMessage] : [...prev, assistantMessage]));
       setLastToolsUsed(response.tools_used);

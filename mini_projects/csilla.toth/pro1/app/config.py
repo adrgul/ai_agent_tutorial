@@ -3,8 +3,15 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
+try:
+    from dotenv import load_dotenv  # type: ignore
+except ImportError:
+    def load_dotenv(*args, **kwargs):
+        raise RuntimeError(
+            "python-dotenv is not installed. Install it with: pip install python-dotenv"
+        )
 
 load_dotenv()
 

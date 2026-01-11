@@ -494,6 +494,107 @@ Useful when user asks about:
 - Quotes or passages from the book
 Actions: 'query' (ask a question), 'info' (get book information)"""
     
+    def _detect_language_lingua(self, text: str) -> str:
+        """
+        Detect language using lingua-language-detector.
+        Returns ISO 639-1 language code (e.g., 'en', 'hu', 'de').
+        """
+        if not text or len(text.strip()) < 3:
+            return "en"
+        
+        try:
+            from lingua import Language, LanguageDetectorBuilder
+            
+            # Build detector with minimum relative distance for better accuracy
+            detector = LanguageDetectorBuilder.from_languages(
+                Language.ENGLISH,
+                Language.HUNGARIAN,
+                Language.GERMAN,
+                Language.FRENCH,
+                Language.SPANISH,
+                Language.ITALIAN,
+                Language.PORTUGUESE,
+                Language.RUSSIAN
+            ).with_minimum_relative_distance(0.15).build()
+            
+            # Detect language
+            detected = detector.detect_language_of(text)
+            
+            if detected is None:
+                logger.warning(f"Could not detect language for: '{text[:50]}...', defaulting to English")
+                return "en"
+            
+            # Map lingua Language enum to ISO 639-1 codes
+            lang_map = {
+                Language.ENGLISH: "en",
+                Language.HUNGARIAN: "hu",
+                Language.GERMAN: "de",
+                Language.FRENCH: "fr",
+                Language.SPANISH: "es",
+                Language.ITALIAN: "it",
+                Language.PORTUGUESE: "pt",
+                Language.RUSSIAN: "ru"
+            }
+            
+            lang_code = lang_map.get(detected, "en")
+            logger.info(f"Detected language by lingua: {detected.name} ({lang_code})")
+            return lang_code
+            
+        except Exception as e:
+            logger.error(f"Language detection error: {e}, defaulting to English")
+            return "en"
+    
+    async def _translate_if_needed(self, text: str, target_lang: str) -> str:
+        """
+        Translate text to target language if it's not already in that language.
+        Uses OpenAI GPT for translation.
+        """
+        try:
+            from langchain_openai import ChatOpenAI
+            from langchain_core.messages import HumanMessage, SystemMessage
+            import os
+            
+            # Get OpenAI API key from environment
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                logger.warning("No OpenAI API key found, skipping translation")
+                return text
+            
+            # Language name mapping
+            lang_names = {
+                'en': 'English',
+                'hu': 'Hungarian',
+                'de': 'German',
+                'fr': 'French',
+                'es': 'Spanish',
+                'it': 'Italian',
+                'pt': 'Portuguese',
+                'ru': 'Russian'
+            }
+            
+            target_lang_name = lang_names.get(target_lang, 'English')
+            
+            llm = ChatOpenAI(
+                model="gpt-4-turbo-preview",
+                temperature=0.1,
+                openai_api_key=api_key
+            )
+            
+            messages = [
+                SystemMessage(content=f"You are a professional translator. Translate the following text to {target_lang_name}. Preserve formatting, markdown, and structure. Only output the translation, nothing else."),
+                HumanMessage(content=text)
+            ]
+            
+            response = await llm.ainvoke(messages)
+            translated = response.content.strip()
+            
+            logger.info(f"Translated response to {target_lang_name}")
+            return translated
+            
+        except Exception as e:
+            logger.error(f"Translation error: {e}, returning original text")
+            return text
+    
     async def execute(
         self,
         action: str = "query",
@@ -536,6 +637,18 @@ Actions: 'query' (ask a question), 'info' (get book information)"""
                 sources = result.get("sources", [])
                 book_title = result.get("book_title", "Unknown")
                 
+                # CRITICAL: Verify language match and translate if needed
+                question_lang = self._detect_language_lingua(question)
+                answer_lang = self._detect_language_lingua(answer)
+                
+                logger.info(f"Language verification - Question: {question_lang}, Answer: {answer_lang}")
+                
+                # If languages don't match, translate the answer
+                if question_lang != answer_lang:
+                    logger.warning(f"Language mismatch detected! Translating from {answer_lang} to {question_lang}")
+                    answer = await self._translate_if_needed(answer, question_lang)
+                    logger.info("Translation completed")
+                
                 # Build source references
                 source_refs = []
                 for i, src in enumerate(sources[:3], 1):
@@ -543,7 +656,7 @@ Actions: 'query' (ask a question), 'info' (get book information)"""
                     preview = src.get("content_preview", "")[:100]
                     source_refs.append(f"[Page {page}]: {preview}...")
                 
-                summary = f"📚 **Answer from '{book_title}':**\n\n{answer}"
+                summary = f"📚 **Answer from '{book_title}'** | Q: {question_lang.upper()} → A: {answer_lang.upper()}:\n\n{answer}"
                 if source_refs:
                     summary += f"\n\n**Sources:**\n" + "\n".join(source_refs)
                 
@@ -551,7 +664,7 @@ Actions: 'query' (ask a question), 'info' (get book information)"""
                     "success": True,
                     "message": summary,
                     "data": result,
-                    "system_message": f"Found answer from book '{book_title}' using {len(sources)} source passages"
+                    "system_message": f"❓: {question_lang.upper()} → 💬: {answer_lang.upper()}"
                 }
             
             elif action == "info":

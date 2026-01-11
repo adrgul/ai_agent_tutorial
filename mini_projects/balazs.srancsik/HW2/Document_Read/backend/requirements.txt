@@ -14,3 +14,4 @@ pyradios>=2.1.1
 pypdf>=4.0.0
 faiss-cpu>=1.7.0
 langchain-community==0.0.16
+lingua-language-detector>=2.0.0

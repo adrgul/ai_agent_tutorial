@@ -26,11 +26,11 @@ class OpenAISummarizer(Summarizer):
     def summarize(self, text: str, max_words: int = 20) -> str:
         prompt = (
             "You are a concise summarizer. "
-            f"Summarize the following text in at most {max_words} words. "
+            f"Summarize the following text in at most {max_words} words on the input language. "
             "Return only the summary text, no extra commentary.\n\nText:\n" + text
         )
-        # If no API key is available, skip remote call and use a simple fallback
-        if not os.getenv("OPENAI_API_KEY"):
+        # If no API key is available (env var or openai.api_key), skip remote call and use a simple fallback
+        if not (os.getenv("OPENAI_API_KEY") or getattr(openai, "api_key", None)):
             parts = text.split()
             return " ".join(parts[:max_words])
 
@@ -49,7 +49,7 @@ class OpenAISummarizer(Summarizer):
             if len(parts) <= max_words:
                 return summary
             return " ".join(parts[:max_words]).rstrip(".,;:")
-        except Exception:
-            print("Warning: summarization failed, using local fallback.")
+        except Exception as exc:
+            print("Warning: summarization failed, using local fallback.", exc)
             # Fallback: naive first N words from the original text
             return " ".join(text.split()[:max_words])

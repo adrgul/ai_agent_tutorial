@@ -90,13 +90,20 @@ Names found:
 - Kázmér
 
 Konklúzió: sem a summary sem a névlistázás nem megfelelő válasz. prompt finomhangolandó későbbi felhasználásra.
-
-TODO:
-eliminálni a fölösleges kódrészeket (embedding, vectorstore), ehhez módosítani az init-promptot, áttekinteni a hivatkozásokat.
-
+#JAVÍTÁS 26.01.05.
 Tesztelhetőség:
 1) A pro1 mappában .env file helyezendő el, OPENAI_API_KEY=<sajátkulcsbeheylettesítendő> tartalommal.
-2) navigáljunk az app almappába
+2) futtassuk le a függőségek telepítőjét a pro1
 3) python -m main.py
-De jelenleg indentationError-t dob. Beadás előtt nem tudom már megfixálni, több kört is futva, javítást kérve a copilottól, ugyanott tartok. Pardon.
-Tóth.
+
+
+Teszteset:
+Enter a prompt (or 'exit' to quit): Egy napsütéses szombat reggel Pitypang felébredt, nyújtózott egy nagyot és kiugrott az ágyból. Mikor mindennapi tornájával végzett, arra gondolt, vajon járt-e már itt a Postás. Felhúzta pulóverét és kiment a postaládához. Volt is benne egy levél, csupa arany tintával írva: Kedves Pitypang! Szombat délután szívesen látlak egy csésze teára és egy szelet tortára. Nem kell kiöltöznöd! Szeretettel ölel, Zsiráf Zsófi. Pitypang nagyon megörült: nohát! hiszen ez ma van, még szerencse, hogy úgyis borbélyhoz készültem. Sietve elmosogatta és eltörölgette a reggeli edényt, gyorsan beágyazott és már futott is a borbélyhoz. Kenguru Kázmér már várta. Kázmér előbb megnyírta aztán alaposan besamponozta a sörényét. 
+
+Summary (<=20 words):
+Pitypang egy szép napsütéses reggelen kapott egy meghívást Zsiráf Zsófitól egy csésze tea és szelet torta elfogyasztására. Örömmel készült a találkozóra, még a borbélyhoz is sietett előtte.       
+
+Names found:
+- Pitypang
+- Zsiráf Zsófi
+- Kenguru Kázmér

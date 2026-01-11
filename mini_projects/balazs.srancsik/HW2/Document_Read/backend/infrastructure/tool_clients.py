@@ -718,6 +718,56 @@ class BookRAGClient(IBookRAGClient):
             logger.error(f"Failed to initialize Book RAG pipeline: {e}", exc_info=True)
             raise
     
+    def _detect_language_lingua(self, text: str) -> str:
+        """
+        Detect language using lingua-language-detector.
+        Returns ISO 639-1 language code (e.g., 'en', 'hu', 'de').
+        """
+        if not text or len(text.strip()) < 3:
+            return "en"
+        
+        try:
+            from lingua import Language, LanguageDetectorBuilder
+            
+            # Build detector with minimum relative distance for better accuracy
+            detector = LanguageDetectorBuilder.from_languages(
+                Language.ENGLISH,
+                Language.HUNGARIAN,
+                Language.GERMAN,
+                Language.FRENCH,
+                Language.SPANISH,
+                Language.ITALIAN,
+                Language.PORTUGUESE,
+                Language.RUSSIAN
+            ).with_minimum_relative_distance(0.15).build()
+            
+            # Detect language
+            detected = detector.detect_language_of(text)
+            
+            if detected is None:
+                logger.warning(f"Could not detect language for: '{text[:50]}...', defaulting to English")
+                return "en"
+            
+            # Map lingua Language enum to ISO 639-1 codes
+            lang_map = {
+                Language.ENGLISH: "en",
+                Language.HUNGARIAN: "hu",
+                Language.GERMAN: "de",
+                Language.FRENCH: "fr",
+                Language.SPANISH: "es",
+                Language.ITALIAN: "it",
+                Language.PORTUGUESE: "pt",
+                Language.RUSSIAN: "ru"
+            }
+            
+            lang_code = lang_map.get(detected, "en")
+            logger.info(f"Detected language by lingua: {detected.name} ({lang_code})")
+            return lang_code
+            
+        except Exception as e:
+            logger.error(f"Language detection error: {e}, defaulting to English")
+            return "en"
+
     async def query(self, question: str, top_k: int = 5) -> Dict[str, Any]:
         """
         Query the book content using RAG pipeline.
@@ -735,35 +785,50 @@ class BookRAGClient(IBookRAGClient):
             from langchain_openai import ChatOpenAI
             from langchain_core.prompts import ChatPromptTemplate
             from langchain_core.output_parsers import StrOutputParser
-            from langchain_core.runnables import RunnablePassthrough
             
-            logger.info(f"Querying book with: {question[:100]}...")
+            # Detect language using lingua
+            detected_lang = self._detect_language_lingua(question)
+            logger.info(f"Querying book: '{question[:50]}...' (Detected language: {detected_lang})")
             
+            # Configure language-specific system messages based on detected language
+            language_system_messages = {
+                'hu': "Te egy magyar nyelvű könyv-asszisztens vagy. Válaszolj MINDIG MAGYARUL a megadott könyvrészletek alapján. Ha a kontextus más nyelven van, fordítsd le a választ magyarra. Soha ne válaszolj angolul vagy más nyelven.",
+                'de': "Sie sind ein deutschsprachiger Buchassistent. Antworten Sie IMMER auf DEUTSCH basierend auf dem Buchkontext. Wenn der Kontext in einer anderen Sprache ist, übersetzen Sie die Antwort ins Deutsche. Antworten Sie niemals auf Englisch oder einer anderen Sprache.",
+                'fr': "Vous êtes un assistant de livre en français. Répondez TOUJOURS en FRANÇAIS basé sur le contexte du livre. Si le contexte est dans une autre langue, traduisez la réponse en français. Ne répondez jamais en anglais ou dans une autre langue.",
+                'es': "Eres un asistente de libros en español. Responde SIEMPRE en ESPAÑOL basándote en el contexto del libro. Si el contexto está en otro idioma, traduce la respuesta al español. Nunca respondas en inglés u otro idioma.",
+                'it': "Sei un assistente di libri in italiano. Rispondi SEMPRE in ITALIANO basandoti sul contesto del libro. Se il contesto è in un'altra lingua, traduci la risposta in italiano. Non rispondere mai in inglese o in un'altra lingua.",
+                'pt': "Você é um assistente de livros em português. Responda SEMPRE em PORTUGUÊS com base no contexto do livro. Se o contexto estiver em outro idioma, traduza a resposta para o português. Nunca responda em inglês ou outro idioma.",
+                'ru': "Вы книжный ассистент на русском языке. ВСЕГДА отвечайте на РУССКОМ на основе контекста книги. Если контекст на другом языке, переведите ответ на русский. Никогда не отвечайте на английском или другом языке.",
+                'en': "You are an English-speaking book assistant. ALWAYS answer in ENGLISH based on the book context. If the context is in another language, translate the answer to English. Never respond in another language."
+            }
+            
+            # Get system message for detected language, default to English
+            system_message = language_system_messages.get(detected_lang, language_system_messages['en'])
+
             # Retrieve relevant chunks
             retriever = self._vectorstore.as_retriever(
                 search_type="similarity",
                 search_kwargs={"k": top_k}
             )
             
-            # Get relevant documents
+            # Get relevant documents (Synchronous invoke to avoid event loop issues)
             docs = retriever.invoke(question)
             
-            # Build context from retrieved documents
+            # Build context
             context = "\n\n".join([doc.page_content for doc in docs])
             
-            # Create prompt
-            prompt = ChatPromptTemplate.from_template(
-                """Use the following pieces of context from the book to answer the question. 
-If you don't know the answer based on the context, say so - don't make up information.
-Always try to provide specific details from the text when possible.
-
-Context from the book:
+            # Create prompt with proper system/user message structure
+            from langchain_core.messages import SystemMessage, HumanMessage
+            
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", system_message),
+                ("human", """Context from the book:
 {context}
 
 Question: {question}
 
-Answer (provide a detailed response based on the book content):"""
-            )
+Provide your answer based on the context above.""")
+            ])
             
             # Create LLM
             llm = ChatOpenAI(
@@ -775,10 +840,10 @@ Answer (provide a detailed response based on the book content):"""
             # Create chain
             chain = prompt | llm | StrOutputParser()
             
-            # Run query
+            # Run chain (Synchronous invoke)
             answer = chain.invoke({"context": context, "question": question})
             
-            # Extract source information
+            # Extract sources
             sources = []
             for doc in docs:
                 sources.append({

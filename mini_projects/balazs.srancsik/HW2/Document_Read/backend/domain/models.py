@@ -55,6 +55,7 @@ class ToolCall(BaseModel):
     arguments: Dict[str, Any]
     result: Optional[Any] = None
     error: Optional[str] = None
+    system_message: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.now)
 
 

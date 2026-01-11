@@ -27,6 +27,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                   {tool.success ? '✓' : '✗'}
                 </span>
                 <span className="tool-name">{tool.name}</span>
+                {tool.system_message && (
+                  <span className="tool-details"> - {tool.system_message}</span>
+                )}
               </div>
             ))}
           </div>

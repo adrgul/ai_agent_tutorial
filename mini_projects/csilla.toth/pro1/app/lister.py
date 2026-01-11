@@ -21,11 +21,12 @@ class OpenAIListParticipants(ParticipantLister):
 
     def list_names(self, text: str) -> List[str]:
         prompt = (
-            "Extract all PERSON NAMES mentioned in the text below. "
-            "Return a JSON array of unique names only.\n\nText:\n" + text
+            "Extract all PERSON NAMES mentioned in the text below. Each name may consist of multiple words. "
+            "Ignore phrases that are not person names such as verbs or adjectives. Only hungarian names are accepted."
+            "Return a JSON array of names only. Each name should enlisted only once.\n\nText:\n" + text
         )
-        # If no API key is set, skip remote call and fall back to a heuristic
-        if not os.getenv("OPENAI_API_KEY"):
+        # If no API key is set (env var or openai.api_key), skip remote call and fall back to a heuristic
+        if not (os.getenv("OPENAI_API_KEY") or getattr(openai, "api_key", None)):
             content = ""
         else:
             try:
@@ -38,15 +39,32 @@ class OpenAIListParticipants(ParticipantLister):
                 )
                 content = resp.choices[0].message.content.strip()
             except Exception as e:
-                    print("Warning: name extraction failed, using local fallback.")
+                print("Warning: name extraction failed, using local fallback.", e)
                 content = ""
         # Try to parse JSON-like array, but be defensive
         import json
+        import unicodedata
+
+        def _normalize(n: str) -> str:
+            # Normalize unicode, collapse whitespace and casefold for comparison
+            s = unicodedata.normalize("NFKC", n).strip()
+            s = " ".join(s.split())
+            return s.casefold()
 
         try:
             names = json.loads(content) if content else []
             if isinstance(names, list):
-                return list(dict.fromkeys([n.strip() for n in names if isinstance(n, str) and n.strip()]))
+                dedup = {}
+                for n in names:
+                    if not isinstance(n, str):
+                        continue
+                    orig = n.strip()
+                    if not orig:
+                        continue
+                    key = _normalize(orig)
+                    if key not in dedup:
+                        dedup[key] = orig
+                return list(dedup.values())
         except Exception:
             # Fallback heuristics: find capitalized word sequences
             pass
@@ -63,11 +81,15 @@ class OpenAIListParticipants(ParticipantLister):
                     cur = []
         if cur:
             candidates.append(" ".join(cur))
-        # Deduplicate preserving order
-        seen = set()
-        out = []
+        # Deduplicate preserving order using normalization
+        dedup = {}
         for c in candidates:
-            if c and c not in seen:
-                seen.add(c)
-                out.append(c)
-        return out
+            if not c:
+                continue
+            orig = c.strip()
+            if not orig:
+                continue
+            key = _normalize(orig)
+            if key not in dedup:
+                dedup[key] = orig
+        return list(dedup.values())

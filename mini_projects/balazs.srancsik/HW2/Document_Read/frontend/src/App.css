@@ -286,6 +286,12 @@ body {
   opacity: 0.9;
 }
 
+.tool-details {
+  opacity: 0.8;
+  font-size: 0.85em;
+  color: #a0a0a0;
+}
+
 /* Loading indicator */
 .loading {
   opacity: 0.7;

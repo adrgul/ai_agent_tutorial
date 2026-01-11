@@ -34,7 +34,7 @@ class CLI:
         self.lister = lister
 
     def run(self) -> None:
-        print("Embedding demo — stores prompts and retrieves nearest neighbors.")
+       # print("Embedding demo — stores prompts and retrieves nearest neighbors.")
         print("Type 'exit' or 'quit' to end.")
         while True:
             try:
@@ -48,7 +48,7 @@ class CLI:
             if not text:
                 continue
 
-            summary = self.summarizer.summarize(text, max_words=20)
+            summary = self.summarizer.summarize(text, max_words=50)
             names = self.lister.list_names(text)
             result = self.app.process_query(text, k=3)
 
@@ -59,9 +59,11 @@ class CLI:
                 for n in names:
                     print(f"- {n}")
             else:
-                print("(none)")
-
+                print("(no names have been found)")
+'''
             print("\nStored prompt and retrieved nearest neighbors:")
             for idx, (nid, dist, ntext) in enumerate(result.get("neighbors", []), start=1):
                 print(f"{idx}. (distance={dist:.6f}) \"{ntext}\"")
             print("\n---\n")
+
+'''
