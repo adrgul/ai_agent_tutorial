@@ -32,6 +32,8 @@ from langchain_openai import ChatOpenAI
 from pydantic import ValidationError
 
 from ..state import AdvancedAgentState, ExecutionPlan, PlanStep
+from observability.metrics import record_node_duration
+from observability.llm_instrumentation import instrumented_llm_call
 
 logger = logging.getLogger(__name__)
 
@@ -92,53 +94,130 @@ class PlannerNode:
         Returns:
             Updated state with execution_plan field populated
         """
-        # Extract user message
-        user_message = state["messages"][-1].content
-        
-        logger.info(f"[PLANNER] Generating plan for: {user_message[:100]}...")
-        state["debug_logs"].append("[PLANNER] Starting plan generation...")
-        
-        # Create planning prompt
-        system_prompt = self._create_planning_prompt()
-        
-        # Call LLM
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=f"User request: {user_message}\n\nGenerate an execution plan in JSON format.")
-        ]
-        
-        try:
-            response = await self.llm.ainvoke(messages)
-            plan_json = response.content
+        with record_node_duration("planner"):
+            # Extract user message
+            user_message = state["messages"][-1].content
             
-            # Parse and validate plan
-            plan = self._parse_plan(plan_json)
+            logger.info(f"[PLANNER] Generating plan for: {user_message[:100]}...")
+            state["debug_logs"].append("[PLANNER] Starting plan generation...")
             
-            logger.info(f"[PLANNER] Generated plan with {len(plan.steps)} steps")
-            state["debug_logs"].append(f"[PLANNER] ✓ Plan created: {len(plan.steps)} steps")
+            # Extract user preferences from SystemMessage (if present)
+            user_context = ""
+            for msg in state.get("messages", []):
+                if hasattr(msg, 'type') and msg.type == 'system':
+                    content = msg.content
+                    if "User Context:" in content or "Preferences:" in content:
+                        user_context = content
+                        logger.info(f"[PLANNER] Found user context: {user_context[:200]}")
+                        break
             
-            # Update state
-            return {
-                "execution_plan": plan,
-                "current_step_index": 0,
-                "plan_completed": False,
-                "debug_logs": [f"[PLANNER] Plan ID: {plan.plan_id}"]
-            }
+            # CRITICAL FIX: Build tool descriptions from state (includes MCP tools)
+            dynamic_tool_descriptions = self._build_dynamic_tool_descriptions(state)
             
-        except Exception as e:
-            logger.error(f"[PLANNER] Failed to generate plan: {e}")
-            state["debug_logs"].append(f"[PLANNER] ✗ Error: {str(e)}")
+            # Create planning prompt with all available tools
+            system_prompt = self._create_planning_prompt(dynamic_tool_descriptions)
             
-            # Return a simple fallback plan
-            fallback_plan = self._create_fallback_plan(user_message)
-            return {
-                "execution_plan": fallback_plan,
-                "current_step_index": 0,
-                "plan_completed": False,
-                "debug_logs": ["[PLANNER] Using fallback plan due to error"]
-            }
+            # Build user prompt with context
+            user_prompt = f"User request: {user_message}"
+            if user_context:
+                user_prompt = f"{user_context}\n\n{user_prompt}\n\nIMPORTANT: Use the user's default_city from preferences if they ask for weather without specifying a city."
+            user_prompt += "\n\nGenerate an execution plan in JSON format."
+            
+            # Call LLM
+            messages = [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt)
+            ]
+            
+            try:
+                response = await instrumented_llm_call(
+                    self.llm,
+                    messages,
+                    task_type="planner",
+                    model_name=self.llm.model_name
+                )
+                plan_json = response.content
+                
+                # Parse and validate plan
+                plan = self._parse_plan(plan_json)
+                
+                logger.info(f"[PLANNER] Generated plan with {len(plan.steps)} steps")
+                state["debug_logs"].append(f"[PLANNER] ✓ Plan created: {len(plan.steps)} steps")
+                
+                # Update state
+                return {
+                    "execution_plan": plan,
+                    "current_step_index": 0,
+                    "plan_completed": False,
+                    "debug_logs": [f"[PLANNER] Plan ID: {plan.plan_id}"]
+                }
+                
+            except Exception as e:
+                logger.error(f"[PLANNER] Failed to generate plan: {e}")
+                state["debug_logs"].append(f"[PLANNER] ✗ Error: {str(e)}")
+                
+                # Return a simple fallback plan
+                fallback_plan = self._create_fallback_plan(user_message)
+                return {
+                    "execution_plan": fallback_plan,
+                    "current_step_index": 0,
+                    "plan_completed": False,
+                    "debug_logs": ["[PLANNER] Using fallback plan due to error"]
+                }
     
-    def _create_planning_prompt(self) -> str:
+    def _build_dynamic_tool_descriptions(self, state: AdvancedAgentState) -> str:
+        """
+        Build tool descriptions dynamically from state, including MCP tools.
+        
+        WHY dynamic?
+        - MCP tools are fetched at runtime, not at initialization
+        - AlphaVantage/DeepWiki tools are stored in state
+        - Planner needs to know about ALL available tools
+        
+        Args:
+            state: Current state with alphavantage_tools and deepwiki_tools
+            
+        Returns:
+            Formatted string of all tool descriptions
+        """
+        descriptions = []
+        
+        # Add base tools
+        descriptions.append("### Built-in Tools:")
+        for tool_name, tool_info in self.available_tools.items():
+            desc = f"- {tool_name}: {tool_info.get('description', 'No description')}"
+            if "parameters" in tool_info:
+                desc += f"\n  Parameters: {tool_info['parameters']}"
+            descriptions.append(desc)
+        
+        # Add AlphaVantage MCP tools if available
+        alphavantage_tools = state.get("alphavantage_tools", [])
+        if alphavantage_tools:
+            descriptions.append("\n### AlphaVantage Financial & Market Data Tools:")
+            for tool in alphavantage_tools[:50]:  # Limit to avoid token overflow
+                tool_name = tool.get("name", "unknown")
+                tool_desc = tool.get("description", "No description")
+                input_schema = tool.get("inputSchema", {})
+                properties = input_schema.get("properties", {})
+                params = ", ".join(properties.keys()) if properties else "none"
+                descriptions.append(f"- {tool_name}: {tool_desc}")
+                if params != "none":
+                    descriptions.append(f"  Parameters: {params}")
+            logger.info(f"[PLANNER] Included {len(alphavantage_tools)} AlphaVantage tools")
+        
+        # Add DeepWiki MCP tools if available
+        deepwiki_tools = state.get("deepwiki_tools", [])
+        if deepwiki_tools:
+            descriptions.append("\n### DeepWiki Knowledge Base Tools:")
+            for tool in deepwiki_tools:
+                tool_name = tool.get("name", "unknown")
+                tool_desc = tool.get("description", "No description")
+                descriptions.append(f"- {tool_name}: {tool_desc}")
+            logger.info(f"[PLANNER] Included {len(deepwiki_tools)} DeepWiki tools")
+        
+        return "\n".join(descriptions)
+    
+    def _create_planning_prompt(self, tool_descriptions: str) -> str:
         """
         Create the system prompt for plan generation.
         
@@ -146,11 +225,14 @@ class PlannerNode:
         - LLM needs clear instructions for structured output
         - Examples help LLM understand the format
         - Constraints prevent invalid plans
+        
+        Args:
+            tool_descriptions: Formatted string of available tools
         """
         return f"""You are an expert AI planning agent. Your job is to break down user requests into structured execution plans.
 
 Available tools:
-{self.tool_descriptions}
+{tool_descriptions}
 
 RULES:
 1. Output ONLY valid JSON matching the ExecutionPlan schema

@@ -11,6 +11,9 @@ import logging
 from langchain_core.tools import tool, StructuredTool
 from pydantic import BaseModel, Field
 
+# Observability imports
+from observability.metrics import record_tool_call
+
 from domain.interfaces import (
     IWeatherClient, IGeocodeClient, IIPGeolocationClient,
     IFXRatesClient, ICryptoPriceClient, IConversationRepository,
@@ -40,8 +43,9 @@ class WeatherTool:
     
     async def execute(self, city: Optional[str] = None, lat: Optional[float] = None, lon: Optional[float] = None) -> Dict[str, Any]:
         """Get weather forecast via MCP Weather Tool."""
-        logger.info(f"MCP Weather Tool called: city={city}, lat={lat}, lon={lon}")
-        result = await self.client.get_forecast(city=city, lat=lat, lon=lon)
+        with record_tool_call("weather"):
+            logger.info(f"MCP Weather Tool called: city={city}, lat={lat}, lon={lon}")
+            result = await self.client.get_forecast(city=city, lat=lat, lon=lon)
         
         if "error" not in result:
             # Format result for agent with today and tomorrow summary
@@ -90,31 +94,32 @@ class GeocodeTool:
     
     async def execute(self, address: Optional[str] = None, lat: Optional[float] = None, lon: Optional[float] = None) -> Dict[str, Any]:
         """Geocode or reverse geocode."""
-        logger.info(f"Geocode tool called: address={address}, lat={lat}, lon={lon}")
+        with record_tool_call("geocode"):
+            logger.info(f"Geocode tool called: address={address}, lat={lat}, lon={lon}")
         
-        if address:
-            result = await self.client.geocode(address)
-        elif lat is not None and lon is not None:
-            result = await self.client.reverse_geocode(lat, lon)
-        else:
-            return {
-                "success": False,
-                "error": "Either address or coordinates required",
-                "system_message": "Geocoding failed: missing parameters"
-            }
-        
-        if "error" not in result:
-            return {
-                "success": True,
-                "data": result,
-                "system_message": f"Geocoded location: {result.get('display_name', 'Unknown')}"
-            }
-        else:
-            return {
-                "success": False,
-                "error": result["error"],
-                "system_message": f"Geocoding failed: {result['error']}"
-            }
+            if address:
+                result = await self.client.geocode(address)
+            elif lat is not None and lon is not None:
+                result = await self.client.reverse_geocode(lat, lon)
+            else:
+                return {
+                    "success": False,
+                    "error": "Either address or coordinates required",
+                    "system_message": "Geocoding failed: missing parameters"
+                }
+            
+            if "error" not in result:
+                return {
+                    "success": True,
+                    "data": result,
+                    "system_message": f"Geocoded location: {result.get('display_name', 'Unknown')}"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": result["error"],
+                    "system_message": f"Geocoding failed: {result['error']}"
+                }
 
 
 class IPGeolocationTool:
@@ -123,19 +128,24 @@ class IPGeolocationTool:
     def __init__(self, client: IIPGeolocationClient):
         self.client = client
         self.name = "ip_geolocation"
-        self.description = "Get geographic location from IP address. Useful when user provides or asks about IP addresses."
+        self.description = "Get geographic location from IP address. Can auto-detect user's current location if no IP provided. Useful for detecting user location."
     
-    async def execute(self, ip_address: str) -> Dict[str, Any]:
-        """Get location from IP."""
-        logger.info(f"IP geolocation tool called: ip={ip_address}")
+    async def execute(self, ip_address: str = "") -> Dict[str, Any]:
+        """Get location from IP. If ip_address is empty, auto-detects user's location."""
+        logger.info(f"IP geolocation tool called: ip={ip_address or 'auto-detect'}")
         result = await self.client.get_location(ip_address)
         
         if "error" not in result:
             location_str = f"{result.get('city', 'Unknown')}, {result.get('country', 'Unknown')}"
+            ip_str = result.get('ip', ip_address or 'auto-detected')
             return {
                 "success": True,
                 "data": result,
-                "system_message": f"Resolved IP {ip_address} to {location_str} (lat: {result.get('latitude')}, lon: {result.get('longitude')})"
+                "city": result.get('city'),  # Make city easily accessible for dependencies
+                "country": result.get('country'),
+                "latitude": result.get('latitude'),
+                "longitude": result.get('longitude'),
+                "system_message": f"Resolved IP {ip_str} to {location_str} (lat: {result.get('latitude')}, lon: {result.get('longitude')})"
             }
         else:
             return {
@@ -179,7 +189,7 @@ class CryptoPriceTool:
     def __init__(self, client: ICryptoPriceClient):
         self.client = client
         self.name = "crypto_price"
-        self.description = "Get current cryptocurrency prices. Useful when user asks about Bitcoin, Ethereum, or other crypto prices."
+        self.description = "Get current cryptocurrency prices ONLY (Bitcoin, Ethereum, Dogecoin, etc.). DO NOT use for stock prices (AAPL, MSFT, GOOGL, TSLA, etc.) - use AlphaVantage tools for stocks."
     
     async def execute(self, symbol: str, fiat: str = "USD") -> Dict[str, Any]:
         """Get crypto price."""

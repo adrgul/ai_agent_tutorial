@@ -1,13 +1,13 @@
-<mxfile host="app.diagrams.net" modified="2025-12-08T00:00:00.000Z" agent="Draw.io" version="22.1.0">
+<mxfile host="app.diagrams.net" modified="2026-01-14T00:00:00.000Z" agent="Draw.io" version="22.1.0">
   <diagram name="AI Agent Architecture" id="ai-agent-architecture">
-    <mxGraphModel dx="1434" dy="844" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+    <mxGraphModel dx="1434" dy="844" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1400" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         
         <!-- Title -->
-        <mxCell id="title" value="AI Agent Architecture: Prompt → Action → Observation → Memory" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="1">
-          <mxGeometry x="400" y="20" width="800" height="40" as="geometry" />
+        <mxCell id="title" value="AI Agent Architecture: RAG → LangGraph → MCP Tools → Memory" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="300" y="20" width="1000" height="40" as="geometry" />
         </mxCell>
         
         <!-- PHASE 1: PROMPT (User Input) -->
@@ -55,14 +55,24 @@
           <mxGeometry x="340" y="80" width="200" height="40" as="geometry" />
         </mxCell>
         
-        <!-- AIAgent -->
-        <mxCell id="ai-agent" value="&lt;b&gt;AIAgent (LangGraph)&lt;/b&gt;&lt;br&gt;agent.py&lt;br&gt;&lt;br&gt;StateGraph workflow:&lt;br&gt;- AgentState (TypedDict)&lt;br&gt;- iteration_count tracking&lt;br&gt;- MAX_ITERATIONS = 10&lt;br&gt;- recursion_limit = 50" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
-          <mxGeometry x="340" y="140" width="200" height="160" as="geometry" />
+        <!-- RAG Pipeline (NEW) -->
+        <mxCell id="rag-pipeline" value="&lt;b&gt;RAG Pipeline&lt;/b&gt;&lt;br&gt;rag_graph.py&lt;br&gt;&lt;br&gt;Nodes:&lt;br&gt;- query_rewrite: LLM rewriting&lt;br&gt;- retrieve: Vector search&lt;br&gt;- format: Build citations&lt;br&gt;&lt;br&gt;ChromaDB + OpenAI embeddings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="280" y="140" width="220" height="160" as="geometry" />
         </mxCell>
         
-        <!-- Agent Decide Node -->
-        <mxCell id="agent-decide" value="&lt;b&gt;agent_decide_node()&lt;/b&gt;&lt;br&gt;agent.py&lt;br&gt;&lt;br&gt;GPT-4 LLM Decision:&lt;br&gt;- Analyze user request&lt;br&gt;- Track tools_called&lt;br&gt;- Decide: call_tool or final_answer&lt;br&gt;- Increment iteration_count&lt;br&gt;&lt;br&gt;Returns: action + tool_name" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
-          <mxGeometry x="340" y="330" width="200" height="180" as="geometry" />
+        <!-- AIAgent (Updated) -->
+        <mxCell id="ai-agent" value="&lt;b&gt;AdvancedAgentGraph&lt;/b&gt;&lt;br&gt;advanced_graph.py&lt;br&gt;&lt;br&gt;LangGraph StateGraph:&lt;br&gt;- AgentState (TypedDict)&lt;br&gt;- MAX_ITERATIONS = 20&lt;br&gt;- RAG integration&lt;br&gt;- MCP tool discovery&lt;br&gt;- Parallel execution" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="520" y="140" width="200" height="160" as="geometry" />
+        </mxCell>
+        
+        <!-- MCP Tool Fetch (NEW) -->
+        <mxCell id="mcp-fetch" value="&lt;b&gt;MCP Tool Discovery&lt;/b&gt;&lt;br&gt;agent.py&lt;br&gt;&lt;br&gt;Fetch AlphaVantage Tools:&lt;br&gt;- Stock quotes (GLOBAL_QUOTE)&lt;br&gt;- Commodities (WTI, BRENT, etc)&lt;br&gt;- Economic data (CPI, GDP)&lt;br&gt;&lt;br&gt;Fetch DeepWiki Tools:&lt;br&gt;- Wikipedia search&lt;br&gt;- Entity extraction" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="280" y="330" width="220" height="180" as="geometry" />
+        </mxCell>
+        
+        <!-- Agent Decide No(Updated) -->
+        <mxCell id="route-decision" value="&lt;b&gt;_route_decision()&lt;/b&gt;&lt;br&gt;agent.py&lt;br&gt;&lt;br&gt;Check iteration_count (&lt; 20)&lt;br&gt;Route to:&lt;br&gt;- tool_* (single tool)&lt;br&gt;- parallel_tool_execution&lt;br&gt;- mcp_tool_execution&lt;br&gt;- agent_finalize" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="520" y="540" width="220" height="140" as="geometry" />
         </mxCell>
         
         <!-- Route Decision -->
@@ -70,8 +80,13 @@
           <mxGeometry x="340" y="540" width="200" height="120" as="geometry" />
         </mxCell>
         
-        <!-- Arrow: ChatService to AIAgent -->
-        <mxCell id="arrow4" value="run(user_message,&lt;br&gt;memory, user_id)" style="endArrow=classic;html=1;exitX=1;exitY=0.25;entryX=0;entryY=0.5;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="chat-service" target="ai-agent">
+        <!-- Arrow: ChatService to RAG -->
+        <mxCell id="arrow4" value="user message" style="endArrow=classic;html=1;exitX=1;exitY=0.25;entryX=0;entryY=0.5;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;strokeColor=#6c8ebf;" edge="1" parent="1" source="chat-service" target="rag-pipeline">
+          <mxGeometry width="50" height="50" relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Arrow: ChatService to MCP Fetch -->
+        <mxCell id="arrow-fetch" value="init tools" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;strokeColor=#82b366;dashed=1;" edge="1" parent="1" source="chat-service" target="mcp-fetch">
           <mxGeometry width="50" height="50" relative="1" as="geometry" />
         </mxCell>
         
@@ -81,7 +96,7 @@
         </mxCell>
         
         <!-- Arrow: Decide to Route -->
-        <mxCell id="arrow6" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeWidth=2;" edge="1" parent="1" source="agent-decide" target="route-decision">
+        <mxCell id="arrow6" value="JSON decision" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeWidth=2;" edge="1" parent="1" source="agent-decide" target="route-decision">
           <mxGeometry width="50" height="50" relative="1" as="geometry" />
         </mxCell>
         
@@ -95,7 +110,7 @@
           <mxGeometry x="640" y="140" width="200" height="180" as="geometry" />
         </mxCell>
         
-        <!-- Tool Wrappers -->
+        <!-- Local Tool Wrappers (Updated) -->
         <mxCell id="tool-wrappers" value="&lt;b&gt;Tool Wrappers&lt;/b&gt;&lt;br&gt;tools.py&lt;br&gt;&lt;br&gt;- WeatherTool&lt;br&gt;- GeocodeTool&lt;br&gt;- IPGeolocationTool&lt;br&gt;- FXRatesTool&lt;br&gt;- CryptoPriceTool&lt;br&gt;- FileCreationTool&lt;br&gt;- HistorySearchTool&lt;br&gt;&lt;br&gt;Each has: name, description, execute()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
           <mxGeometry x="640" y="350" width="200" height="220" as="geometry" />
         </mxCell>
@@ -105,38 +120,58 @@
           <mxGeometry x="920" y="350" width="240" height="220" as="geometry" />
         </mxCell>
         
+        <!-- Arrow: RAG to Agent -->
+        <mxCell id="arrow-rag" value="RAG context" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeWidth=2;strokeColor=#6c8ebf;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="rag-pipeline" target="ai-agent">
+          <mxGeometry width="50" height="50" relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Arrow: MCP Fetch to Agent Decide -->
+        <mxCell id="arrow-mcp-fetch" value="tools list" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeWidth=2;strokeColor=#82b366;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="mcp-fetch" target="agent-decide">
+          <mxGeometry width="50" height="50" relative="1" as="geometry" />
+        </mxCell>
+        
         <!-- Arrow: Route to Tools -->
-        <mxCell id="arrow7" value="if action == call_tool" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="route-decision" target="tool-nodes">
+        <mxCell id="arrow7" value="single tool" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.3;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;strokeColor=#d79b00;" edge="1" parent="1" source="route-decision" target="tool-wrappers">
           <mxGeometry width="50" height="50" relative="1" as="geometry" />
         </mxCell>
         
-        <!-- Arrow: Tools to Wrappers -->
-        <mxCell id="arrow8" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeWidth=2;" edge="1" parent="1" source="tool-nodes" target="tool-wrappers">
+        <!-- Arrow: Route to Parallel -->
+        <mxCell id="arrow-parallel" value="call_tools_parallel" style="endArrow=classic;html=1;exitX=1;exitY=0.7;entryX=0;entryY=0.5;strokeWidth=3;strokeColor=#ff6600;edgeStyle=orthogonalEdgeStyle;fontStyle=1" edge="1" parent="1" source="route-decision" target="parallel-execution">
           <mxGeometry width="50" height="50" relative="1" as="geometry" />
         </mxCell>
         
-        <!-- Arrow: Wrappers to Clients -->
-        <mxCell id="arrow9" value="" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeWidth=2;" edge="1" parent="1" source="tool-wrappers" target="api-clients">
+        <!-- Arrow: Route to MCP -->
+        <mxCell id="arrow-mcp" value="MCP tool" style="endArrow=classic;html=1;exitX=1;exitY=0.3;entryX=0;entryY=0.5;strokeWidth=2;strokeColor=#82b366;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="route-decision" target="mcp-execution">
           <mxGeometry width="50" height="50" relative="1" as="geometry" />
         </mxCell>
         
-        <!-- Arrow: Clients back to Wrappers (Response) -->
-        <mxCell id="arrow10" value="API Response" style="endArrow=classic;html=1;exitX=0;exitY=0.7;entryX=1;entryY=0.7;strokeWidth=2;dashed=1;strokeColor=#999999;" edge="1" parent="1" source="api-clients" target="tool-wrappers">
+        <!-- Arrow: Tools to Clients -->
+        <mxCell id="arrow9" value="" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.3;strokeWidth=2;" edge="1" parent="1" source="tool-wrappers" target="api-clients">
+          <mxGeometry width="50" height="50" relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Arrow: MCP to Clients -->
+        <mxCell id="arrow-mcp-client" value="" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.7;strokeWidth=2;strokeColor=#82b366;" edge="1" parent="1" source="mcp-execution" target="api-clients">
+          <mxGeometry width="50" height="50" relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Arrow: Parallel to Clients -->
+        <mxCell id="arrow-parallel-client" value="" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeWidth=2;strokeColor=#ff6600;" edge="1" parent="1" source="parallel-execution" target="api-clients">
           <mxGeometry width="50" height="50" relative="1" as="geometry" />
         </mxCell>
         
         <!-- Loop Back to Decide -->
-        <mxCell id="arrow11" value="Loop: tool → agent_decide&lt;br&gt;(for multi-step workflows)" style="endArrow=classic;html=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;strokeWidth=3;strokeColor=#ff6600;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="tool-nodes" target="agent-decide">
+        <mxCell id="arrow11" value="Loop: tools → agent_decide&lt;br&gt;(multi-step, iteration &lt; 20)" style="endArrow=classic;html=1;exitX=0.5;exitY=0;entryX=1;entryY=0.7;strokeWidth=3;strokeColor=#ff6600;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="parallel-execution" target="agent-decide">
           <mxGeometry width="50" height="50" relative="1" as="geometry" />
         </mxCell>
         
-        <!-- PHASE 4: MEMORY (Persistence & Context) -->
-        <mxCell id="phase4-title" value="4. MEMORY PHASE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1" vertex="1" parent="1">
-          <mxGeometry x="340" y="720" width="200" height="40" as="geometry" />
+        <!-- PHASE 4: MEMORY(Updated) -->
+        <mxCell id="agent-finalize" value="&lt;b&gt;agent_finalize_node()&lt;/b&gt;&lt;br&gt;agent.py&lt;br&gt;&lt;br&gt;Generate final response:&lt;br&gt;- Integrate all tool results&lt;br&gt;- Include RAG citations&lt;br&gt;- Return AIMessage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="520" y="800" width="220" height="120" as="geometry" />
         </mxCell>
         
-        <!-- Agent Finalize -->
-        <mxCell id="agent-finalize" value="&lt;b&gt;agent_finalize_node()&lt;/b&gt;&lt;br&gt;agent.py&lt;br&gt;&lt;br&gt;Generates final response&lt;br&gt;with all tool results&lt;br&gt;integrated" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+        <!-- Arrow: Route to Finalize -->
+        <mxCell id="arrow12" value="final_answer OR&lt;br&gt;iteration &gt;= 20py&lt;br&gt;&lt;br&gt;Generates final response&lt;br&gt;with all tool results&lt;br&gt;integrated" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
           <mxGeometry x="340" y="780" width="200" height="100" as="geometry" />
         </mxCell>
         
@@ -145,14 +180,14 @@
           <mxGeometry width="50" height="50" relative="1" as="geometry" />
         </mxCell>
         
-        <!-- Repositories -->
-        <mxCell id="repositories" value="&lt;b&gt;Repositories&lt;/b&gt;&lt;br&gt;repositories.py&lt;br&gt;&lt;br&gt;FileUserRepository:&lt;br&gt;- save_profile()&lt;br&gt;- get_profile()&lt;br&gt;- data/users/*.json&lt;br&gt;&lt;br&gt;FileConversationRepository:&lt;br&gt;- add_message()&lt;br&gt;- get_history()&lt;br&gt;- data/sessions/*.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="40" y="720" width="240" height="200" as="geometry" />
+        <!-- Repositories (Updated) -->
+        <mxCell id="repositories" value="&lt;b&gt;Repositories&lt;/b&gt;&lt;br&gt;repositories.py&lt;br&gt;&lt;br&gt;FileUserRepository:&lt;br&gt;- save_profile()&lt;br&gt;- get_profile()&lt;br&gt;- data/users/*.json&lt;br&gt;&lt;br&gt;FileConversationRepository:&lt;br&gt;- add_message()&lt;br&gt;- get_history()&lt;br&gt;- data/sessions/*.json&lt;br&gt;&lt;br&gt;Vector Store (RAG):&lt;br&gt;- ChromaDB&lt;br&gt;- data/chroma/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="40" y="800" width="240" height="240" as="geometry" />
         </mxCell>
         
-        <!-- Profile Updates -->
-        <mxCell id="profile-updates" value="&lt;b&gt;Profile Updates&lt;/b&gt;&lt;br&gt;chat_service.py&lt;br&gt;_check_profile_updates()&lt;br&gt;&lt;br&gt;Extract from conversation:&lt;br&gt;- User name (regex)&lt;br&gt;- City/location&lt;br&gt;- Preferences&lt;br&gt;&lt;br&gt;Save to user profile" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="40" y="950" width="240" height="160" as="geometry" />
+        <!-- Profile Updates (Updated) -->
+        <mxCell id="profile-updates" value="&lt;b&gt;Profile &amp; Memory Updates&lt;/b&gt;&lt;br&gt;chat_service.py&lt;br&gt;&lt;br&gt;Extract from conversation:&lt;br&gt;- User name (regex)&lt;br&gt;- City/location&lt;br&gt;- Preferences&lt;br&gt;&lt;br&gt;Save to user profile&lt;br&gt;&lt;br&gt;Observability:&lt;br&gt;- Prometheus metrics&lt;br&gt;- Request correlation (request_id)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1070" width="240" height="200" as="geometry" />
         </mxCell>
         
         <!-- Arrow: ChatService back from Agent -->
@@ -202,35 +237,39 @@
         
         <!-- Legend -->
         <mxCell id="legend-box" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="920" y="80" width="240" height="240" as="geometry" />
+          <mxGeometry x="920" y="80" width="240" height="270" as="geometry" />
         </mxCell>
         
         <mxCell id="legend-title" value="&lt;b&gt;LEGEND&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
           <mxGeometry x="920" y="85" width="240" height="30" as="geometry" />
         </mxCell>
         
-        <mxCell id="legend-1" value="Prompt Phase: User input &amp; API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+        <mxCell id="legend-1" value="RAG: Knowledge retrieval" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
           <mxGeometry x="930" y="120" width="220" height="25" as="geometry" />
         </mxCell>
         
-        <mxCell id="legend-2" value="Action Phase: LLM decision &amp; routing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="1">
+        <mxCell id="legend-2" value="Agent: LLM decision &amp; routing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="1">
           <mxGeometry x="930" y="150" width="220" height="25" as="geometry" />
         </mxCell>
         
-        <mxCell id="legend-3" value="Observation: Tool execution" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
+        <mxCell id="legend-3" value="MCP: Dynamic tool discovery" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
           <mxGeometry x="930" y="180" width="220" height="25" as="geometry" />
         </mxCell>
         
-        <mxCell id="legend-4" value="Memory: Persistence &amp; state" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+        <mxCell id="legend-4" value="Local tools: Built-in functions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="1">
           <mxGeometry x="930" y="210" width="220" height="25" as="geometry" />
         </mxCell>
         
-        <mxCell id="legend-5" value="Response: Frontend display" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+        <mxCell id="legend-5" value="Memory: File &amp; vector persistence" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
           <mxGeometry x="930" y="240" width="220" height="25" as="geometry" />
         </mxCell>
         
-        <mxCell id="legend-6" value="External APIs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+        <mxCell id="legend-6" value="Frontend: React UI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
           <mxGeometry x="930" y="270" width="220" height="25" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="legend-7" value="External: HTTP APIs &amp; MCP servers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="930" y="300" width="220" height="25" as="geometry" />
         </mxCell>
         
         <!-- Key Classes Box -->
@@ -242,7 +281,7 @@
           <mxGeometry x="920" y="625" width="240" height="30" as="geometry" />
         </mxCell>
         
-        <mxCell id="key-classes-content" value="&lt;b&gt;PROMPT:&lt;/b&gt;&lt;br&gt;- ChatRequest (models.py)&lt;br&gt;- POST /chat (main.py)&lt;br&gt;- ChatService.process_message()&lt;br&gt;&lt;br&gt;&lt;b&gt;ACTION:&lt;/b&gt;&lt;br&gt;- AIAgent (agent.py)&lt;br&gt;- AgentState (TypedDict)&lt;br&gt;- _agent_decide_node()&lt;br&gt;- _route_decision()&lt;br&gt;- ChatOpenAI (LangChain)&lt;br&gt;- StateGraph (LangGraph)&lt;br&gt;&lt;br&gt;&lt;b&gt;OBSERVATION:&lt;/b&gt;&lt;br&gt;- _create_tool_node()&lt;br&gt;- WeatherTool, GeocodeTool, etc.&lt;br&gt;- IWeatherClient, IGeocodeClient&lt;br&gt;- OpenMeteoWeatherClient&lt;br&gt;- NominatimGeocodeClient&lt;br&gt;- ToolCall (models.py)&lt;br&gt;&lt;br&gt;&lt;b&gt;MEMORY:&lt;/b&gt;&lt;br&gt;- Memory (models.py)&lt;br&gt;- UserProfile (models.py)&lt;br&gt;- ConversationHistory (models.py)&lt;br&gt;- IUserRepository (interfaces.py)&lt;br&gt;- IConversationRepository&lt;br&gt;- FileUserRepository&lt;br&gt;- FileConversationRepository&lt;br&gt;- _check_profile_updates()&lt;br&gt;&lt;br&gt;&lt;b&gt;RESPONSE:&lt;/b&gt;&lt;br&gt;- ChatResponse (models.py)&lt;br&gt;- _agent_finalize_node()&lt;br&gt;- App.tsx (frontend)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
+        <mxCell id="key-classes-content" value="&lt;b&gt;RAG PIPELINE:&lt;/b&gt;&lt;br&gt;- create_rag_subgraph() (rag_graph.py)&lt;br&gt;- RetrievalService&lt;br&gt;- ChromaVectorStore&lt;br&gt;- OpenAIEmbeddingService&lt;br&gt;- OverlappingChunker&lt;br&gt;- query_rewrite, retrieve, format nodes&lt;br&gt;&lt;br&gt;&lt;b&gt;AGENT CORE:&lt;/b&gt;&lt;br&gt;- AdvancedAgentGraph (advanced_graph.py)&lt;br&gt;- AgentState (state.py - TypedDict)&lt;br&gt;- AdvancedAgentAdapter (main.py)&lt;br&gt;- _agent_decide_node()&lt;br&gt;- _fetch_alphavantage_tools_node()&lt;br&gt;- _fetch_deepwiki_tools_node()&lt;br&gt;- _route_decision()&lt;br&gt;- MAX_ITERATIONS = 20&lt;br&gt;&lt;br&gt;&lt;b&gt;MCP INTEGRATION:&lt;/b&gt;&lt;br&gt;- MCPClient (tool_clients.py)&lt;br&gt;- DeepWikiMCPClient&lt;br&gt;- mcp_tool_execution_node()&lt;br&gt;- AlphaVantage MCP server&lt;br&gt;- DeepWiki MCP server&lt;br&gt;&lt;br&gt;&lt;b&gt;PARALLEL EXECUTION:&lt;/b&gt;&lt;br&gt;- execute_parallel_mcp_tools()&lt;br&gt;- parallel_tool_execution_node()&lt;br&gt;- asyncio.gather()&lt;br&gt;- parallel_results_reducer()&lt;br&gt;&lt;br&gt;&lt;b&gt;LOCAL TOOLS:&lt;/b&gt;&lt;br&gt;- WeatherTool, GeocodeTool&lt;br&gt;- CryptoPriceTool, FXRatesTool&lt;br&gt;- FileCreationTool&lt;br&gt;- HistorySearchTool&lt;br&gt;&lt;br&gt;&lt;b&gt;MEMORY:&lt;/b&gt;&lt;br&gt;- FileUserRepository&lt;br&gt;- FileConversationRepository&lt;br&gt;- ChromaVectorStore (RAG)&lt;br&gt;&lt;br&gt;&lt;b&gt;OBSERVABILITY:&lt;/b&gt;&lt;br&gt;- Prometheus metrics&lt;br&gt;- request_id correlation&lt;br&gt;- record_node_duration()&lt;br&gt;- record_error()" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=9;" vertex="1" parent="1">
           <mxGeometry x="930" y="660" width="220" height="510" as="geometry" />
         </mxCell>
         

@@ -50,7 +50,7 @@ class MCPToolFetcherNode:
 
     async def __call__(self, state: AdvancedAgentState) -> Dict[str, Any]:
         """
-        Fetch tools from MCP server.
+        Fetch tools from MCP server (caches in state to avoid re-fetching).
 
         Args:
             state: Current agent state
@@ -58,6 +58,15 @@ class MCPToolFetcherNode:
         Returns:
             State updates with fetched tools
         """
+        # Store tools in state with server-specific key
+        tool_key = f"{self.server_name.lower()}_tools"
+        
+        # Check if tools already fetched (avoid re-fetching on every workflow iteration)
+        existing_tools = state.get(tool_key)
+        if existing_tools:
+            logger.info(f"[MCP] Using cached {len(existing_tools)} tools from {self.server_name} (skip fetch)")
+            return {}  # No state updates needed, tools already present
+        
         logger.info(f"[MCP] Fetching tools from {self.server_name} server: {self.server_url}")
 
         # Initialize debug logs if not present
@@ -73,9 +82,6 @@ class MCPToolFetcherNode:
             debug_logs.append(f"[MCP] ✓ Fetched {len(tools)} tools from {self.server_name}")
 
             logger.info(f"[MCP] Successfully fetched {len(tools)} tools from {self.server_name}")
-
-            # Store tools in state with server-specific key
-            tool_key = f"{self.server_name.lower()}_tools"
 
             return {
                 tool_key: tools,

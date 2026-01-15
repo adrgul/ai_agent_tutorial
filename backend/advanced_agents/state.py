@@ -244,6 +244,17 @@ class AdvancedAgentState(TypedDict, total=False):
     debug_logs: Annotated[List[str], list_reducer]  # Educational debug output
     tools_called: Annotated[List[Dict[str, Any]], list_reducer]  # Tool call history
     
+    # Tools
+    tools: Dict[str, Any]  # Available tools for execution
+    
+    # MCP tools (fetched dynamically from MCP servers)
+    alphavantage_tools: Optional[List[Dict[str, Any]]]  # Tools from AlphaVantage MCP server
+    deepwiki_tools: Optional[List[Dict[str, Any]]]  # Tools from DeepWiki MCP server
+    
+    # MCP clients (injected by graph for executor to use)
+    alphavantage_mcp_client: Any  # AlphaVantage MCP client instance
+    deepwiki_mcp_client: Any  # DeepWiki MCP client instance
+    
     # Final output
     final_answer: Optional[str]  # The final response to the user
 
@@ -252,7 +263,7 @@ class AdvancedAgentState(TypedDict, total=False):
 # HELPER FUNCTIONS - State initialization and validation
 # ============================================================================
 
-def create_initial_state(user_id: str, message: str, session_id: Optional[str] = None) -> AdvancedAgentState:
+def create_initial_state(user_id: str, message: str, session_id: Optional[str] = None, tools: Optional[Dict[str, Any]] = None) -> AdvancedAgentState:
     """
     Create a properly initialized AdvancedAgentState.
     
@@ -265,6 +276,7 @@ def create_initial_state(user_id: str, message: str, session_id: Optional[str] =
         user_id: User identifier
         message: User's input message
         session_id: Optional session identifier
+        tools: Available tools for execution
         
     Returns:
         Fully initialized state ready for graph execution
@@ -290,5 +302,6 @@ def create_initial_state(user_id: str, message: str, session_id: Optional[str] =
         max_iterations=20,
         debug_logs=[],
         tools_called=[],
+        tools=tools or {},
         final_answer=None
     )

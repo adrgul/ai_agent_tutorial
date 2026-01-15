@@ -16,6 +16,11 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, System
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 
+# Observability imports
+from observability.metrics import record_node_duration, record_error
+from observability.llm_instrumentation import instrumented_llm_call
+from observability.correlation import get_request_id, add_request_id_to_state
+
 from domain.models import Message, Memory, WorkflowState, ToolCall
 from services.tools import (
     WeatherTool, GeocodeTool, IPGeolocationTool,
@@ -68,6 +73,9 @@ class AgentState(TypedDict, total=False):
     # Parallel execution support
     parallel_tasks: Annotated[List[Dict[str, Any]], parallel_results_reducer]
     parallel_results: Annotated[List[Dict[str, Any]], parallel_results_reducer]
+    
+    # Observability: request correlation
+    request_id: str  # Unique request ID for tracing and correlation
 
 
 class AIAgent:
@@ -206,7 +214,8 @@ class AIAgent:
         3. Stores them in state for agent to use
         4. Runs FIRST before any other tool decisions
         """
-        logger.info("Fetching tools from AlphaVantage MCP server")
+        with record_node_duration("fetch_alphavantage_tools"):
+            logger.info("Fetching tools from AlphaVantage MCP server")
         
         # Initialize debug logs if not exists
         if "debug_logs" not in state:
@@ -249,10 +258,10 @@ class AIAgent:
             logger.error(f"Error fetching AlphaVantage tools: {e}")
             state["debug_logs"].append(f"[MCP] ✗ Error fetching tools: {str(e)}")
         
-        # Store tools in state for agent to use
-        state["alphavantage_tools"] = alphavantage_tools
-        
-        return state
+            # Store tools in state for agent to use
+            state["alphavantage_tools"] = alphavantage_tools
+            
+            return state
     
     async def _fetch_deepwiki_tools_node(self, state: AgentState) -> AgentState:
         """
@@ -264,7 +273,8 @@ class AIAgent:
         3. Stores them in state for agent to use
         4. The agent will then select relevant tools based on user prompt
         """
-        logger.info("Fetching tools from DeepWiki MCP server")
+        with record_node_duration("fetch_deepwiki_tools"):
+            logger.info("Fetching tools from DeepWiki MCP server")
         
         # Initialize debug logs if not exists
         if "debug_logs" not in state:
@@ -306,16 +316,17 @@ class AIAgent:
             logger.error(f"Error fetching DeepWiki tools: {e}")
             state["debug_logs"].append(f"[MCP] ✗ Error fetching tools: {str(e)}")
         
-        # Store tools in state for agent to use
-        state["deepwiki_tools"] = deepwiki_tools
-        
-        return state
+            # Store tools in state for agent to use
+            state["deepwiki_tools"] = deepwiki_tools
+            
+            return state
     
     async def _agent_decide_node(self, state: AgentState) -> AgentState:
         """
         Agent decision node: Analyzes user request and decides next action.
         """
-        logger.info("Agent decision node executing")
+        with record_node_duration("agent_decide"):
+            logger.info(f"Agent decision node executing [request_id={get_request_id()}]")
         
         # Build context for LLM
         system_prompt = self._build_system_prompt(state["memory"])
@@ -391,7 +402,7 @@ Available Citations: {", ".join(citations)}
             "- geocode: Convert address to coordinates or reverse (params: address OR lat/lon)",
             "- ip_geolocation: Get location from IP address (params: ip_address)",
             "- fx_rates: Get currency exchange rates (params: base, target, optional date)",
-            "- crypto_price: Get cryptocurrency prices (params: symbol, fiat)",
+            "- crypto_price: Get CRYPTOCURRENCY prices ONLY like BTC, ETH (params: symbol, fiat) - DO NOT use for STOCKS",
             "- create_file: Save text to a file (params: user_id, filename, content)",
             "- search_history: Search past conversations (params: query)"
         ]
@@ -399,15 +410,33 @@ Available Citations: {", ".join(citations)}
         # Add AlphaVantage MCP tools if available
         alphavantage_tools = state.get("alphavantage_tools", [])
         if alphavantage_tools:
-            available_tools_list.append("\n📊 AlphaVantage Financial & Market Data Tools:")
-            for tool in alphavantage_tools[:20]:  # Limit to first 20 to avoid token overflow
+            available_tools_list.append("\n📊 AlphaVantage Financial & Market Data Tools (stocks, commodities, forex, economic indicators):")
+            
+            # Prioritize commodities and stock quote tools (they're most commonly used)
+            priority_tools = ["WTI", "BRENT", "NATURAL_GAS", "COPPER", "ALUMINUM", "WHEAT", "CORN", "COFFEE", "COTTON", 
+                            "GLOBAL_QUOTE", "CURRENCY_EXCHANGE_RATE", "DIGITAL_CURRENCY_DAILY", "CPI", "REAL_GDP"]
+            
+            # Add priority tools first
+            for tool in alphavantage_tools:
                 tool_name = tool.get("name", "")
-                tool_desc = tool.get("description", "No description")
-                # Extract parameter info from inputSchema if available
-                input_schema = tool.get("inputSchema", {})
-                properties = input_schema.get("properties", {})
-                params_desc = ", ".join(properties.keys()) if properties else "see schema"
-                available_tools_list.append(f"  - {tool_name}: {tool_desc} (params: {params_desc})")
+                if tool_name in priority_tools:
+                    tool_desc = tool.get("description", "No description")
+                    input_schema = tool.get("inputSchema", {})
+                    properties = input_schema.get("properties", {})
+                    params_desc = ", ".join(properties.keys()) if properties else "see schema"
+                    available_tools_list.append(f"  - {tool_name}: {tool_desc} (params: {params_desc})")
+            
+            # Add remaining tools (up to 30 total)
+            remaining_count = 0
+            for tool in alphavantage_tools:
+                tool_name = tool.get("name", "")
+                if tool_name not in priority_tools and remaining_count < 15:
+                    tool_desc = tool.get("description", "No description")
+                    input_schema = tool.get("inputSchema", {})
+                    properties = input_schema.get("properties", {})
+                    params_desc = ", ".join(properties.keys()) if properties else "see schema"
+                    available_tools_list.append(f"  - {tool_name}: {tool_desc} (params: {params_desc})")
+                    remaining_count += 1
         
         available_tools_str = "\n".join(available_tools_list)
         
@@ -428,11 +457,14 @@ User's original request: {last_user_msg}
 Tools already called with their arguments: {tools_called_info}
 
 CRITICAL RULES:
-1. NEVER call the same tool with the same arguments twice
-2. If a tool was called and couldn't provide the data (e.g., historical weather), do NOT retry - move to final_answer
-3. If the user asks for something a tool cannot do (like past weather data), explain the limitation in final_answer
-4. If the user requested multiple DIFFERENT tasks, execute them ONE AT A TIME
-5. Only use "final_answer" when ALL requested tasks are complete OR a task is impossible
+1. YOU MUST CALL THE APPROPRIATE TOOL if one exists for the user's request - DO NOT say "data not available" if a tool exists
+2. For COMMODITIES (oil, gas, copper, aluminum, wheat, corn, coffee, cotton): use AlphaVantage tools like WTI, BRENT, NATURAL_GAS, COPPER, etc.
+3. For STOCK prices (AAPL, MSFT, GOOGL, TSLA): use AlphaVantage GLOBAL_QUOTE tool, NOT crypto_price
+4. For CRYPTOCURRENCY prices (BTC, ETH, DOGE): use crypto_price tool
+5. NEVER call the same tool with the same arguments twice
+6. If a tool was called and couldn't provide the data, do NOT retry - move to final_answer
+7. If the user requested multiple DIFFERENT tasks, execute them ONE AT A TIME
+8. Only use "final_answer" when ALL requested tasks are complete OR no suitable tool exists
 
 Respond with ONLY this JSON structure (no other text, no markdown):
 {{
@@ -454,7 +486,10 @@ For PARALLEL execution (when tools don't depend on each other's results):
 
 Examples:
 - Weather: {{"action": "call_tool", "tool_name": "weather", "arguments": {{"city": "Budapest"}}, "reasoning": "get weather forecast"}}
+- Commodities: {{"action": "call_tool", "tool_name": "WTI", "arguments": {{}}, "reasoning": "get WTI crude oil price"}}
+- Stock quote: {{"action": "call_tool", "tool_name": "GLOBAL_QUOTE", "arguments": {{"symbol": "AAPL"}}, "reasoning": "get Apple stock price"}}
 - Parallel stocks: {{"action": "call_tools_parallel", "tools": [{{"tool_name": "GLOBAL_QUOTE", "arguments": {{"symbol": "AAPL"}}}}, {{"tool_name": "GLOBAL_QUOTE", "arguments": {{"symbol": "TSLA"}}}}], "reasoning": "fetch multiple stock prices simultaneously"}}
+- Parallel commodities: {{"action": "call_tools_parallel", "tools": [{{"tool_name": "WTI", "arguments": {{}}}}, {{"tool_name": "BRENT", "arguments": {{}}}}, {{"tool_name": "NATURAL_GAS", "arguments": {{}}}}], "reasoning": "fetch multiple commodity prices simultaneously"}}
 - Create file: {{"action": "call_tool", "tool_name": "create_file", "arguments": {{"filename": "summary.txt", "content": "..."}}, "reasoning": "save summary"}}
 - Final answer: {{"action": "final_answer", "reasoning": "all tasks completed"}}
 
@@ -466,7 +501,16 @@ IMPORTANT: The "action" field must be "call_tool", "call_tools_parallel", or "fi
             HumanMessage(content=decision_prompt)
         ]
         
-        response = await self.llm.ainvoke(messages)
+        # Use instrumented LLM call for metrics collection
+        try:
+            response = await instrumented_llm_call(
+                llm=self.llm,
+                messages=messages,
+                model="gpt-4-turbo-preview"
+            )
+        except Exception as e:
+            record_error(error_type="llm_error", node="agent_decide")
+            raise
         
         # Parse decision
         try:
@@ -809,7 +853,8 @@ IMPORTANT: The "action" field must be "call_tool", "call_tools_parallel", or "fi
         """
         Agent finalize node: Generate final natural language response.
         """
-        logger.info("Agent finalize node executing")
+        with record_node_duration("agent_finalize"):
+            logger.info(f"Agent finalize node executing [request_id={get_request_id()}]")
 
         # Build final prompt with memory and tool results
         system_prompt = self._build_system_prompt(state["memory"])
@@ -856,7 +901,16 @@ Important:
             HumanMessage(content=final_prompt)
         ]
         
-        response = await self.llm.ainvoke(messages)
+        # Use instrumented LLM call for metrics collection
+        try:
+            response = await instrumented_llm_call(
+                llm=self.llm,
+                messages=messages,
+                model="gpt-4-turbo-preview"
+            )
+        except Exception as e:
+            record_error(error_type="llm_error", node="agent_finalize")
+            raise
         
         # Add assistant message
         state["messages"].append(AIMessage(content=response.content))
@@ -924,7 +978,7 @@ User preferences:
         Returns:
             Dict containing final_answer, tools_called, updated memory, and RAG context
         """
-        logger.info(f"Agent run started for user {user_id}")
+        logger.info(f"Agent run started for user {user_id} [request_id={get_request_id()}]")
 
         # Check for special commands that skip RAG
         skip_rag = user_message.lower() == "reset context"
@@ -943,6 +997,9 @@ User preferences:
             "rag_metrics": {},
             "debug_logs": []  # MCP debug logs
         }
+        
+        # Add request correlation
+        initial_state = add_request_id_to_state(initial_state)
         
         # Run workflow with increased recursion limit for multi-step workflows
         final_state = await self.workflow.ainvoke(

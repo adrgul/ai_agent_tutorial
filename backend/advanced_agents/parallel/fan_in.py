@@ -32,6 +32,7 @@ from typing import Dict, Any, List
 from datetime import datetime
 
 from ..state import AdvancedAgentState, AggregationResult
+from observability.metrics import record_node_duration
 
 logger = logging.getLogger(__name__)
 
@@ -80,62 +81,63 @@ class FanInNode:
         Returns:
             Updated state with aggregation_result and aggregated_data
         """
-        parallel_results = state.get("parallel_results", [])
-        
-        if not parallel_results:
-            logger.warning("[FAN-IN] No parallel results to aggregate")
+        with record_node_duration("fan_in"):
+            parallel_results = state.get("parallel_results", [])
+            
+            if not parallel_results:
+                logger.warning("[FAN-IN] No parallel results to aggregate")
+                return {
+                    "parallel_execution_active": False,
+                    "debug_logs": ["[FAN-IN] No results to aggregate"]
+                }
+            
+            logger.info(f"[FAN-IN] Aggregating {len(parallel_results)} results")
+            
+            # Analyze results
+            total_tasks = len(parallel_results)
+            successful_results = [r for r in parallel_results if r.get("success", False)]
+            failed_results = [r for r in parallel_results if not r.get("success", False)]
+            
+            successful_tasks = len(successful_results)
+            failed_tasks = len(failed_results)
+            
+            logger.info(f"[FAN-IN] Success: {successful_tasks}, Failed: {failed_tasks}")
+            
+            # Aggregate successful results
+            aggregated_data = self._aggregate_results(successful_results)
+            
+            # Collect errors from failed tasks
+            errors = [
+                {
+                    "task_id": r.get("task_id", "unknown"),
+                    "error": r.get("error", "Unknown error")
+                }
+                for r in failed_results
+            ]
+            
+            # Create aggregation result
+            aggregation_result = AggregationResult(
+                total_tasks=total_tasks,
+                successful_tasks=successful_tasks,
+                failed_tasks=failed_tasks,
+                aggregated_data=aggregated_data,
+                errors=errors,
+                execution_time_ms=0.0  # Would be calculated from timestamps
+            )
+            
+            # Generate debug output
+            debug_msgs = [
+                f"[FAN-IN] ✓ Aggregated {successful_tasks}/{total_tasks} successful results"
+            ]
+            if failed_tasks > 0:
+                debug_msgs.append(f"[FAN-IN] ⚠️ {failed_tasks} tasks failed")
+            
             return {
+                "aggregation_result": aggregation_result,
+                "aggregated_data": aggregated_data,
                 "parallel_execution_active": False,
-                "debug_logs": ["[FAN-IN] No results to aggregate"]
+                "debug_logs": debug_msgs
             }
-        
-        logger.info(f"[FAN-IN] Aggregating {len(parallel_results)} results")
-        
-        # Analyze results
-        total_tasks = len(parallel_results)
-        successful_results = [r for r in parallel_results if r.get("success", False)]
-        failed_results = [r for r in parallel_results if not r.get("success", False)]
-        
-        successful_tasks = len(successful_results)
-        failed_tasks = len(failed_results)
-        
-        logger.info(f"[FAN-IN] Success: {successful_tasks}, Failed: {failed_tasks}")
-        
-        # Aggregate successful results
-        aggregated_data = self._aggregate_results(successful_results)
-        
-        # Collect errors from failed tasks
-        errors = [
-            {
-                "task_id": r.get("task_id", "unknown"),
-                "error": r.get("error", "Unknown error")
-            }
-            for r in failed_results
-        ]
-        
-        # Create aggregation result
-        aggregation_result = AggregationResult(
-            total_tasks=total_tasks,
-            successful_tasks=successful_tasks,
-            failed_tasks=failed_tasks,
-            aggregated_data=aggregated_data,
-            errors=errors,
-            execution_time_ms=0.0  # Would be calculated from timestamps
-        )
-        
-        # Generate debug output
-        debug_msgs = [
-            f"[FAN-IN] ✓ Aggregated {successful_tasks}/{total_tasks} successful results"
-        ]
-        if failed_tasks > 0:
-            debug_msgs.append(f"[FAN-IN] ⚠️ {failed_tasks} tasks failed")
-        
-        return {
-            "aggregation_result": aggregation_result,
-            "aggregated_data": aggregated_data,
-            "parallel_execution_active": False,
-            "debug_logs": debug_msgs
-        }
     
     def _aggregate_results(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """

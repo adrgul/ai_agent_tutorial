@@ -12,7 +12,12 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
+
+# Observability imports
+from observability.metrics import init_metrics, get_metrics_content
+from observability.config import get_global_config
 
 from domain.models import ChatRequest, ChatResponse, ProfileUpdateRequest
 from domain.interfaces import IUserRepository, IConversationRepository
@@ -128,6 +133,14 @@ async def lifespan(app: FastAPI):
     global chat_service, user_repo, ingestion_service, vector_store
 
     logger.info("Initializing application...")
+
+    # Initialize observability
+    obs_config = get_global_config()
+    init_metrics(
+        environment=obs_config.environment,
+        version=obs_config.version
+    )
+    logger.info(f"Observability initialized [environment={obs_config.environment}, metrics_enabled={obs_config.enable_metrics}]")
 
     # Get OpenAI API key
     openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -250,8 +263,8 @@ async def lifespan(app: FastAPI):
         "ip_geolocation": ip_tool,
         "fx_rates": fx_tool,
         "crypto_price": crypto_tool,
-        "file_creation": file_tool,
-        "history_search": history_tool
+        "create_file": file_tool,
+        "search_history": history_tool
     }
 
     # Get AlphaVantage API key for MCP connection
@@ -314,6 +327,26 @@ app.include_router(teaching_router)
 async def root():
     """Health check endpoint."""
     return {"status": "ok", "message": "AI Agent API is running"}
+
+
+@app.get("/metrics")
+async def metrics():
+    """
+    Prometheus metrics endpoint.
+    
+    Returns metrics in Prometheus text format for scraping.
+    Includes:
+    - Agent request metrics (count, latency)
+    - LLM usage metrics (tokens, cost)
+    - Node execution metrics
+    - Tool call metrics
+    - Error metrics
+    
+    Example usage:
+        curl http://localhost:8000/metrics
+    """
+    content, content_type = get_metrics_content()
+    return Response(content=content, media_type=content_type)
 
 
 @app.post("/api/chat", response_model=ChatResponse)
@@ -622,7 +655,9 @@ async def plan_and_execute(request: ChatRequest):
             "geocode": geocode_tool,
             "ip_geolocation": ip_tool,
             "fx_rates": fx_tool,
-            "crypto_price": crypto_tool
+            "crypto_price": crypto_tool,
+            "create_file": file_tool,
+            "search_history": history_tool
         }
         
         # Create advanced graph
@@ -696,7 +731,9 @@ async def dynamic_route(request: ChatRequest):
             "geocode": geocode_tool,
             "ip_geolocation": ip_tool,
             "fx_rates": fx_tool,
-            "crypto_price": crypto_tool
+            "crypto_price": crypto_tool,
+            "create_file": file_tool,
+            "search_history": history_tool
         }
         
         # Create advanced graph

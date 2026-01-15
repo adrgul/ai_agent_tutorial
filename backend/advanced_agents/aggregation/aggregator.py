@@ -27,6 +27,9 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from ..state import AdvancedAgentState
+from observability.metrics import record_node_duration
+from observability.llm_instrumentation import instrumented_llm_call
+from observability.llm_instrumentation import instrumented_llm_call
 
 logger = logging.getLogger(__name__)
 
@@ -68,37 +71,38 @@ class ResultAggregator:
         Returns:
             Updated state with final_answer
         """
-        logger.info("[AGGREGATOR] Synthesizing final response...")
-        
-        # Gather all results
-        plan_results = state.get("plan_results", [])
-        parallel_results = state.get("parallel_results", [])
-        aggregated_data = state.get("aggregated_data", {})
-        aggregation_result = state.get("aggregation_result")
-        
-        # Build context
-        results_context = self._build_results_context(
-            plan_results, 
-            parallel_results, 
-            aggregated_data,
-            aggregation_result
-        )
-        
-        # Generate final answer
-        if self.use_llm_synthesis and self.llm:
-            final_answer = await self._synthesize_with_llm(state, results_context)
-        else:
-            final_answer = self._synthesize_template(results_context)
-        
-        logger.info(f"[AGGREGATOR] Generated answer ({len(final_answer)} chars)")
-        
-        return {
-            "final_answer": final_answer,
-            "debug_logs": [
-                "[AGGREGATOR] ✓ Final response synthesized",
-                f"[AGGREGATOR] Answer length: {len(final_answer)} chars"
-            ]
-        }
+        with record_node_duration("aggregator"):
+            logger.info("[AGGREGATOR] Synthesizing final response...")
+            
+            # Gather all results
+            plan_results = state.get("plan_results", [])
+            parallel_results = state.get("parallel_results", [])
+            aggregated_data = state.get("aggregated_data", {})
+            aggregation_result = state.get("aggregation_result")
+            
+            # Build context
+            results_context = self._build_results_context(
+                plan_results, 
+                parallel_results, 
+                aggregated_data,
+                aggregation_result
+            )
+            
+            # Generate final answer
+            if self.use_llm_synthesis and self.llm:
+                final_answer = await self._synthesize_with_llm(state, results_context)
+            else:
+                final_answer = self._synthesize_template(results_context)
+            
+            logger.info(f"[AGGREGATOR] Generated answer ({len(final_answer)} chars)")
+            
+            return {
+                "final_answer": final_answer,
+                "debug_logs": [
+                    "[AGGREGATOR] ✓ Final response synthesized",
+                    f"[AGGREGATOR] Answer length: {len(final_answer)} chars"
+                ]
+            }
     
     def _build_results_context(
         self,
@@ -228,7 +232,12 @@ Generate a helpful response."""
         ]
         
         try:
-            response = await self.llm.ainvoke(messages)
+            response = await instrumented_llm_call(
+                llm=self.llm,
+                messages=messages,
+                model="gpt-4o-mini",
+                agent_execution_id=state.get("session_id")
+            )
             return response.content
         except Exception as e:
             logger.error(f"[AGGREGATOR] LLM synthesis failed: {e}")

@@ -8,6 +8,10 @@ from typing import Dict, Any, List
 import logging
 from datetime import datetime
 
+# Observability imports
+from observability.metrics import AgentRequestContext
+from observability.correlation import correlation_context
+
 from domain.models import (
     Message, Memory, WorkflowState, ChatRequest, ChatResponse,
     UserProfile, ConversationHistory
@@ -56,11 +60,16 @@ class ChatService:
         session_id = request.session_id or user_id
         message = request.message.strip()
         
-        logger.info(f"Processing message from user {user_id}, session {session_id}")
+        # Start request correlation and metrics tracking
+        async with AgentRequestContext() as ctx:
+            with correlation_context() as req_id:
+                logger.info(f"Processing message from user {user_id}, session {session_id} [request_id={req_id}]")
         
-        # Check for reset context command
-        if message.lower() == "reset context":
-            return await self._handle_reset_context(user_id, session_id)
+                # Check for reset context command
+                if message.lower() == "reset context":
+                    result = await self._handle_reset_context(user_id, session_id)
+                    ctx.set_status("success")
+                    return result
         
         # Load user profile (creates if doesn't exist)
         profile = await self.user_repo.get_profile(user_id)

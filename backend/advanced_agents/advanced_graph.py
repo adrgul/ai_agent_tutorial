@@ -63,6 +63,7 @@ from .planning import PlannerNode, ExecutorNode
 from .parallel import FanOutNode, FanInNode
 from .routing import DynamicRouter
 from .aggregation import ResultAggregator
+from observability.llm_instrumentation import instrumented_llm_call
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +139,7 @@ class AdvancedAgentGraph:
         )
 
         # Parallel execution nodes
-        self.fan_out = FanOutNode()
+        self.fan_out = FanOutNode(tools=self.tools)  # Pass tools for parallel execution
         self.fan_in = FanInNode(merge_strategy="dict")
 
         # Routing node
@@ -213,17 +214,31 @@ class AdvancedAgentGraph:
             Dict of node_name -> description
         """
         nodes = {
-            "planner": "Create a multi-step execution plan",
-            "executor": "Execute next step in the plan",
-            "fan_out": "Spawn parallel tasks for concurrent execution",
-            "fan_in": "Aggregate results from parallel execution",
-            "aggregator": "Synthesize final response from results",
-            "direct_response": "Generate direct response without planning"
+            "planner": "Create a multi-step execution plan for complex multi-step tasks",
+            "direct_response": "Generate direct response for simple questions without tools"
         }
         
-        # Add tool nodes
-        for tool_name in self.tools.keys():
-            nodes[f"tool_{tool_name}"] = f"Execute {tool_name} tool"
+        # Add MCP execution nodes if available
+        if self.alphavantage_mcp_client or self.deepwiki_mcp_client:
+            nodes["mcp_tool_execution"] = "Execute a single MCP tool (stocks, forex, economic data)"
+            nodes["mcp_parallel_execution"] = "Execute multiple MCP tools in parallel (multiple stocks, forex rates)"
+        
+        # Add individual tool nodes for direct execution
+        tool_descriptions = {
+            "tool_weather": "Get weather forecast for a city (single tool call)",
+            "tool_geocode": "Convert address to coordinates or reverse geocode (single tool call)",
+            "tool_ip_geolocation": "Get location from IP address (single tool call)",
+            "tool_fx_rates": "Get currency exchange rates (single tool call)",
+            "tool_crypto_price": "Get cryptocurrency prices (single tool call)",
+            "tool_create_file": "Save text to a file (single tool call)",
+            "tool_search_history": "Search past conversations (single tool call)"
+        }
+        
+        # Only include tools that exist in self.tools
+        for tool_key, description in tool_descriptions.items():
+            tool_name = tool_key.replace("tool_", "")
+            if tool_name in self.tools:
+                nodes[tool_key] = description
         
         return nodes
     
@@ -266,9 +281,12 @@ class AdvancedAgentGraph:
         if self.mcp_parallel_execution:
             workflow.add_node("mcp_parallel_execution", self.mcp_parallel_execution)
 
-        # Note: Individual tool nodes are NOT added in Advanced Agent
-        # Tools are called dynamically by executor and fan_out nodes
-        # This is different from Main Agent which has individual tool nodes
+        # Add individual API caller tool nodes from basic workflow
+        # These allow direct routing from router to specific tools
+        for tool_name in self.tools.keys():
+            workflow.add_node(f"tool_{tool_name}", self._create_tool_node(tool_name, self.tools[tool_name]))
+        
+        logger.info(f"[GRAPH] Added {len(self.tools)} individual tool nodes")
 
         # Direct response node (bypass planning)
         workflow.add_node("direct_response", self._direct_response_node)
@@ -311,6 +329,12 @@ class AdvancedAgentGraph:
             routing_map["mcp_tool_execution"] = "mcp_tool_execution"
         if self.mcp_parallel_execution:
             routing_map["mcp_parallel_execution"] = "mcp_parallel_execution"
+        
+        # Add individual tool routes for direct execution
+        for tool_name in self.tools.keys():
+            routing_map[f"tool_{tool_name}"] = f"tool_{tool_name}"
+        
+        logger.info(f"[GRAPH] Router can route to {len(routing_map)} destinations")
 
         workflow.add_conditional_edges(
             "router",
@@ -350,6 +374,12 @@ class AdvancedAgentGraph:
             workflow.add_edge("mcp_tool_execution", "aggregator")
         if self.mcp_parallel_execution:
             workflow.add_edge("mcp_parallel_execution", "aggregator")
+        
+        # Individual tool nodes → Aggregator (can loop or finalize)
+        for tool_name in self.tools.keys():
+            workflow.add_edge(f"tool_{tool_name}", "aggregator")
+        
+        logger.info(f"[GRAPH] Connected {len(self.tools)} tool nodes to aggregator")
 
         # Aggregator → END (workflow complete)
         workflow.add_edge("aggregator", END)
@@ -452,6 +482,12 @@ class AdvancedAgentGraph:
             routing_decision = state.get("routing_decision", {})
             arguments = routing_decision.get("arguments", {})
             
+            # CRITICAL: Add user_id for file creation tool
+            if tool_name == "create_file":
+                user_id = state.get("user_id") or state.get("session_id", "default")
+                arguments["user_id"] = user_id
+                logger.info(f"[TOOL:{tool_name}] Injected user_id: {user_id}")
+            
             try:
                 # Execute tool
                 result = await tool.execute(**arguments)
@@ -510,7 +546,12 @@ class AdvancedAgentGraph:
         ]
         
         try:
-            response = await self.llm.ainvoke(messages)
+            response = await instrumented_llm_call(
+                llm=self.llm,
+                messages=messages,
+                model="gpt-4o-mini",
+                agent_execution_id=state.get("session_id")
+            )
             answer = response.content
             
             logger.info(f"[DIRECT] ✓ Generated response ({len(answer)} chars)")
@@ -545,8 +586,28 @@ class AdvancedAgentGraph:
         logger.info("ADVANCED AGENT WORKFLOW START")
         logger.info("="*80)
         
-        # Run workflow
-        final_state = await self.workflow.ainvoke(state)
+        # Inject tools into state if not already present
+        if "tools" not in state or not state["tools"]:
+            state["tools"] = self.tools
+            logger.info(f"[GRAPH] Injected {len(self.tools)} tools into state")
+        
+        # Inject MCP clients into state for executor to use
+        if self.alphavantage_mcp_client:
+            state["alphavantage_mcp_client"] = self.alphavantage_mcp_client
+            logger.info("[GRAPH] Injected AlphaVantage MCP client into state")
+        
+        if self.deepwiki_mcp_client:
+            state["deepwiki_mcp_client"] = self.deepwiki_mcp_client
+            logger.info("[GRAPH] Injected DeepWiki MCP client into state")
+        
+        # Run workflow with increased recursion limit for complex queries
+        # Default is 25, we increase to 100 to handle multi-step workflows and complex queries
+        # Note: Very complex queries that don't require tools may still hit this limit
+        # due to MCP tool fetching at the start of each invocation
+        final_state = await self.workflow.ainvoke(
+            state, 
+            {"recursion_limit": 100}
+        )
         
         logger.info("="*80)
         logger.info("WORKFLOW COMPLETE")
