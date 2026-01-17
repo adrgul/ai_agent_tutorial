@@ -808,6 +808,600 @@ GPT-4 output tokenek árazása: **$0.03/1K**
 
 ---
 
+## 6. Gyorsítótár Technikák - Programozói Útmutató
+
+### Áttekintés
+
+Ez az alkalmazás **három különböző szintű** gyorsítótárazási stratégiát használ a költségek csökkentésére és a teljesítmény javítására:
+
+1. **Node-szintű cache** - Node eredmények tárolása
+2. **Embedding cache** - Számított embeddingeké tárolása  
+3. **Graph-szintű cache** - Teljes workflow állapot mentése (megemlítve, nem implementálva)
+
+### 6.1 Node-szintű Cache (Triage Cache)
+
+#### Mi az?
+
+A node-szintű cache **egy adott node kimenetét** tárolja adott inputhoz. Ha ugyanaz az input újra megérkezik, a node nem fut le, hanem a cached eredményt adja vissza.
+
+#### Implementáció
+
+**Fájl**: `app/cache/memory_cache.py`
+
+```python
+from typing import Optional
+import time
+
+class MemoryCache:
+    """
+    In-memory cache implementation with TTL support.
+    
+    Thread-safe for async operations.
+    """
+    
+    def __init__(self, ttl_seconds: int = 3600, max_size: int = 1000):
+        """
+        Args:
+            ttl_seconds: Time-to-live in seconds (default: 1 hour)
+            max_size: Maximum number of cached items
+        """
+        self._cache = {}  # {key: (value, timestamp)}
+        self._ttl = ttl_seconds
+        self._max_size = max_size
+    
+    async def get(self, key: str) -> Optional[str]:
+        """Get value from cache if not expired."""
+        if key not in self._cache:
+            return None
+        
+        value, timestamp = self._cache[key]
+        
+        # Check TTL
+        if time.time() - timestamp > self._ttl:
+            # Expired - remove and return None
+            del self._cache[key]
+            return None
+        
+        return value
+    
+    async def set(self, key: str, value: str) -> None:
+        """Set value in cache with current timestamp."""
+        # Evict oldest if at max size
+        if len(self._cache) >= self._max_size:
+            oldest_key = min(self._cache.keys(), 
+                           key=lambda k: self._cache[k][1])
+            del self._cache[oldest_key]
+        
+        self._cache[key] = (value, time.time())
+    
+    async def delete(self, key: str) -> None:
+        """Remove key from cache."""
+        if key in self._cache:
+            del self._cache[key]
+    
+    async def clear(self) -> None:
+        """Clear all cached items."""
+        self._cache.clear()
+```
+
+#### Használat a Triage Node-ban
+
+**Fájl**: `app/nodes/triage_node.py`
+
+```python
+async def execute(self, state: AgentState) -> Dict:
+    """Execute triage node."""
+    
+    # 1. Generate cache key from input
+    cache_key = generate_cache_key(self.NODE_NAME, state["user_input"])
+    
+    # 2. Check cache first
+    cached_result = await self.cache.get(cache_key)
+    
+    if cached_result is not None:
+        # 3. Cache HIT - return immediately, NO LLM call
+        logger.info(f"Cache hit for {self.NODE_NAME}")
+        metrics.record_cache_lookup(
+            self.CACHE_NAME,
+            self.NODE_NAME,
+            hit=True,
+            latency=cache_lookup_time
+        )
+        classification = cached_result
+    else:
+        # 4. Cache MISS - call LLM
+        logger.info(f"Cache miss for {self.NODE_NAME}")
+        
+        # Call expensive LLM
+        response = await self.llm_client.complete(...)
+        classification = response.content.strip().lower()
+        
+        # 5. Save result to cache for next time
+        await self.cache.set(cache_key, classification)
+    
+    return {"classification": classification, ...}
+```
+
+#### Cache Key Generálás
+
+**Fájl**: `app/cache/keys.py`
+
+```python
+import hashlib
+
+def generate_cache_key(prefix: str, content: str) -> str:
+    """
+    Generate deterministic cache key.
+    
+    Args:
+        prefix: Namespace (e.g., "triage", "embedding")
+        content: Content to hash (e.g., user input)
+    
+    Returns:
+        Cache key format: "prefix:hash_of_content"
+    
+    Example:
+        generate_cache_key("triage", "What is Docker?")
+        → "triage:a3f5c8b2e9d1f4a7"
+    """
+    # Use SHA-256 hash of content
+    content_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
+    
+    # Combine prefix and hash
+    return f"{prefix}:{content_hash}"
+```
+
+**Miért fontos a determinisztikus hash?**
+- Ugyanaz az input → mindig ugyanaz a cache key
+- Különböző inputok → garantáltan különböző kulcsok
+- Nincs ütközés (collision)
+
+#### Konfiguráció
+
+**Fájl**: `app/config.py`
+
+```python
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    # Cache settings
+    cache_ttl_seconds: int = 3600  # 1 hour
+    cache_max_size: int = 1000     # 1000 items max
+    
+    class Config:
+        env_file = ".env"
+```
+
+**.env fájl**:
+```bash
+# Cache configuration
+CACHE_TTL_SECONDS=3600    # 1 óra
+CACHE_MAX_SIZE=1000       # Max 1000 elem
+```
+
+#### Mikor használd?
+
+✅ **Jó esetek**:
+- Determinisztikus műveletek (ugyanaz az input → ugyanaz az output)
+- Gyakran ismétlődő lekérdezések
+- Drága LLM hívások (classification, extraction)
+- Rövid TTL-lel (1-24 óra)
+
+❌ **Rossz esetek**:
+- Nem-determinisztikus műveletek (creative writing)
+- Egyedi, soha nem ismétlődő lekérdezések
+- Állandóan változó adatok (real-time API-k)
+- Nagyon hosszú válaszok (memória pazarlás)
+
+#### Hatás
+
+| Metrika | Cache Miss | Cache Hit | Javulás |
+|---------|-----------|-----------|---------|
+| **LLM hívás** | 1 | 0 | **100% megtakarítás** |
+| **Költség** | $0.0000047 | $0.00 | **100% megtakarítás** |
+| **Latency** | ~1000ms | ~5ms | **200x gyorsabb** |
+| **Throughput** | ~1 req/s | ~200 req/s | **200x nagyobb** |
+
+---
+
+### 6.2 Embedding Cache
+
+#### Mi az?
+
+Az embedding cache **számított embedding vektorokat** tárol. Mivel az embedding számítás drága (API hívás vagy GPU számítás), a cache elkerüli az újraszámítást azonos szövegekhez.
+
+#### Implementáció
+
+**Fájl**: `app/nodes/retrieval_node.py`
+
+```python
+async def _get_embedding(self, text: str) -> str:
+    """
+    Get embedding for text with caching.
+    
+    In production: OpenAI embeddings API vagy lokális model.
+    Demo: determinisztikus hash szimulálja az embeddinget.
+    """
+    # 1. Generate cache key
+    cache_key = generate_cache_key(self.CACHE_NAME, text)
+    
+    # 2. Check cache
+    cached_embedding = await self.embedding_cache.get(cache_key)
+    
+    if cached_embedding is not None:
+        # 3. Cache HIT - return cached embedding
+        logger.info(f"Embedding cache hit")
+        metrics.record_cache_lookup(
+            self.CACHE_NAME,
+            self.NODE_NAME,
+            hit=True,
+            latency=cache_lookup_time
+        )
+        return cached_embedding
+    
+    # 4. Cache MISS - compute embedding
+    logger.info(f"Embedding cache miss")
+    
+    # In production, this would be:
+    # embedding = await openai.embeddings.create(
+    #     model="text-embedding-ada-002",
+    #     input=text
+    # )
+    
+    # Demo: simulate with hash
+    embedding = hashlib.sha256(text.encode()).hexdigest()
+    
+    # 5. Save to cache
+    await self.embedding_cache.set(cache_key, embedding)
+    
+    return embedding
+```
+
+#### Production Implementáció OpenAI-val
+
+```python
+import openai
+
+async def _get_embedding_production(self, text: str) -> list[float]:
+    """Production embedding with OpenAI."""
+    cache_key = generate_cache_key("embedding", text)
+    
+    # Check cache
+    cached = await self.embedding_cache.get(cache_key)
+    if cached is not None:
+        # Deserialize from JSON
+        return json.loads(cached)
+    
+    # Call OpenAI
+    response = await openai.embeddings.create(
+        model="text-embedding-ada-002",
+        input=text
+    )
+    
+    embedding = response.data[0].embedding  # List[float]
+    
+    # Serialize and cache
+    await self.embedding_cache.set(
+        cache_key, 
+        json.dumps(embedding)
+    )
+    
+    return embedding
+```
+
+#### Mikor használd?
+
+✅ **Jó esetek**:
+- RAG rendszerek (document embeddings)
+- Semantic search
+- Similarity matching
+- Ugyanazokat a dokumentumokat gyakran embeddelni kell
+- Költséges embedding API (OpenAI: $0.0001/1K tokens)
+
+❌ **Rossz esetek**:
+- Egyszer használt szövegek
+- Nagyon rövid szövegek (cache overhead > költség)
+- Változó szövegek
+
+#### Költség Megtakarítás
+
+**OpenAI text-embedding-ada-002 pricing**: $0.0001 per 1K tokens
+
+| Szöveg hossz | Embedding költség | Cache költség | Megtakarítás |
+|--------------|-------------------|---------------|--------------|
+| 100 tokens | $0.00001 | $0.00 | **100%** |
+| 1000 tokens | $0.0001 | $0.00 | **100%** |
+| 10000 tokens | $0.001 | $0.00 | **100%** |
+
+**Példa**: 1000 dokumentum, 500 token átlag, 10x lekérdezve
+- Cache nélkül: 1000 × 10 × $0.00005 = **$0.50**
+- Cache-el: 1000 × $0.00005 = **$0.05** (90% megtakarítás)
+
+---
+
+### 6.3 Graph-szintű Cache (LangGraph Checkpointing)
+
+#### Mi az?
+
+A graph-szintű cache **a teljes workflow állapotát** menti minden node után. Ez lehetővé teszi:
+- Workflow újraindítását megszakítás után
+- Human-in-the-loop pattern-ek
+- Time-travel debugging
+- Teljes conversation history
+
+#### Koncepcionális Implementáció
+
+**Jelenleg NEM implementálva, de így nézne ki:**
+
+```python
+from langgraph.checkpoint import MemorySaver, SqliteSaver
+
+# In-memory checkpointing (development)
+checkpointer = MemorySaver()
+
+# Persistent checkpointing (production)
+checkpointer = SqliteSaver.from_conn_string("checkpoints.db")
+
+# Compile graph with checkpointing
+app = workflow.compile(checkpointer=checkpointer)
+
+# Run with thread_id for state persistence
+result = await app.ainvoke(
+    {"user_input": "What is Docker?"},
+    config={"configurable": {"thread_id": "conversation-123"}}
+)
+
+# Continue conversation from same thread
+result2 = await app.ainvoke(
+    {"user_input": "Tell me more"},
+    config={"configurable": {"thread_id": "conversation-123"}}
+)
+```
+
+#### Graph Cache Előnyei
+
+✅ **Előnyök**:
+- Conversation history automatikusan tárolva
+- Retry mechanizmus (ha node elszáll)
+- Human approval steps (pl. expensive művelet előtt)
+- Debugging: lépésenként visszajátszható
+- Multi-turn conversations
+
+❌ **Hátrányok**:
+- Nagyobb memória/disk használat
+- Komplexebb setup
+- State serializálási overhead
+- Nem mindig szükséges
+
+#### Mikor használd?
+
+✅ **Használd, ha**:
+- Multi-turn conversation
+- Human-in-the-loop szükséges
+- Long-running workflows (órák/napok)
+- Retry/recovery fontos
+- Audit trail kell
+
+❌ **NE használd, ha**:
+- Stateless, single-turn requests
+- Egyszerű API calls
+- Nincs szükség history-ra
+- Performance kritikus (cache overhead)
+
+#### Implementációs Példa
+
+**app/graph/agent_graph.py** (kiterjesztett változat):
+
+```python
+from langgraph.checkpoint import MemorySaver
+
+def create_graph_with_checkpointing():
+    """
+    Create agent graph with state persistence.
+    
+    This enables:
+    - Conversation history
+    - Human-in-the-loop
+    - Workflow recovery
+    """
+    # Build workflow
+    workflow = StateGraph(AgentState)
+    
+    # Add nodes...
+    workflow.add_node("triage", triage_node.execute)
+    workflow.add_node("retrieval", retrieval_node.execute)
+    # etc...
+    
+    # Add edges...
+    
+    # IMPORTANT: Compile with checkpointer
+    checkpointer = MemorySaver()  # Or SqliteSaver for persistence
+    
+    app = workflow.compile(checkpointer=checkpointer)
+    
+    return app
+
+# Usage
+app = create_graph_with_checkpointing()
+
+# First message in conversation
+result1 = await app.ainvoke(
+    {"user_input": "What is Docker?"},
+    config={"configurable": {"thread_id": "user-123"}}
+)
+
+# Follow-up question - has context from previous
+result2 = await app.ainvoke(
+    {"user_input": "How do I install it?"},
+    config={"configurable": {"thread_id": "user-123"}}
+)
+# Graph automatically loads previous state!
+```
+
+---
+
+### 6.4 Cache Összehasonlítás
+
+| Cache Típus | Granularitás | TTL | Használat | Komplexitás |
+|-------------|--------------|-----|-----------|-------------|
+| **Node Cache** | Node eredmény | 1-24 óra | Ismétlődő lekérdezések | Alacsony |
+| **Embedding Cache** | Embedding vektor | 7-30 nap | RAG document store | Közepes |
+| **Graph Cache** | Teljes workflow | Session | Multi-turn chat | Magas |
+
+### 6.5 Cache Stratégia Választás
+
+#### Döntési Fa
+
+```
+Van ismétlődő input?
+├─ Igen → Node cache
+└─ Nem → Nincs cache
+
+Van embedding számítás?
+├─ Igen → Embedding cache
+└─ Nem → Nincs embedding cache
+
+Multi-turn conversation?
+├─ Igen → Graph checkpointing
+└─ Nem → Nincs graph cache
+```
+
+#### Kombinált Stratégia (Ez az app)
+
+```python
+# Initialization
+node_cache = MemoryCache(ttl_seconds=3600)      # 1 óra
+embedding_cache = MemoryCache(ttl_seconds=86400) # 24 óra
+# graph_checkpointer = None  # Not needed for stateless API
+
+# Triage node uses node cache
+triage_node = TriageNode(
+    cache=node_cache  # ← Node-level caching
+)
+
+# Retrieval node uses embedding cache
+retrieval_node = RetrievalNode(
+    embedding_cache=embedding_cache  # ← Embedding caching
+)
+
+# Graph compiled WITHOUT checkpointing (stateless)
+app = workflow.compile()  # No checkpointer
+```
+
+### 6.6 Cache Metrikák és Monitoring
+
+#### Prometheus Metrikák
+
+**Fájl**: `app/observability/metrics.py`
+
+```python
+from prometheus_client import Counter, Histogram
+
+# Cache operation counters
+cache_hit_total = Counter(
+    'cache_hit_total',
+    'Total cache hits',
+    ['cache', 'node']
+)
+
+cache_miss_total = Counter(
+    'cache_miss_total',
+    'Total cache misses',
+    ['cache', 'node']
+)
+
+# Cache lookup latency
+cache_lookup_latency_seconds = Histogram(
+    'cache_lookup_latency_seconds',
+    'Cache lookup latency',
+    ['cache', 'node']
+)
+```
+
+#### Cache Hit Rate Számítás (PromQL)
+
+```promql
+# Overall cache hit rate
+sum(rate(cache_hit_total[5m])) / 
+  (sum(rate(cache_hit_total[5m])) + sum(rate(cache_miss_total[5m])))
+
+# Node cache hit rate
+sum(rate(cache_hit_total{cache="node_cache"}[5m])) / 
+  (sum(rate(cache_hit_total{cache="node_cache"}[5m])) + 
+   sum(rate(cache_miss_total{cache="node_cache"}[5m])))
+```
+
+#### Grafana Dashboard Panelek
+
+**Cache Hit Ratio**:
+- Mutassa: 0-100%
+- Típus: Gauge
+- Threshold: <30% piros, 30-60% sárga, >60% zöld
+
+**Cache Operations**:
+- Mutassa: hits/sec, misses/sec
+- Típus: Time series
+- Stack: Yes
+
+### 6.7 Cache Best Practices
+
+#### ✅ TEDD
+
+1. **Használj TTL-t mindig**
+   ```python
+   cache = MemoryCache(ttl_seconds=3600)  # 1 óra
+   ```
+
+2. **Állíts be max_size-t**
+   ```python
+   cache = MemoryCache(max_size=1000)  # Max 1000 elem
+   ```
+
+3. **Használj strukturált cache kulcsokat**
+   ```python
+   key = f"{namespace}:{hash}"  # Jó
+   # key = hash  # Rossz - névütközés
+   ```
+
+4. **Monitorozd a cache hit rate-t**
+   ```python
+   metrics.record_cache_lookup(cache_name, node, hit=True)
+   ```
+
+5. **Dokumentáld a TTL stratégiát**
+   ```python
+   # Triage: 1 óra (classification stabil)
+   # Embedding: 24 óra (dokumentumok ritkán változnak)
+   ```
+
+#### ❌ NE TEDD
+
+1. **Ne cache-elj nem-determinisztikus műveleteket**
+   ```python
+   # ROSSZ: Creative writing random eredményt ad
+   cache.set("creative_story", random_story)
+   ```
+
+2. **Ne használj túl hosszú TTL-t**
+   ```python
+   # ROSSZ: 30 nap TTL régi adatokhoz vezet
+   cache = MemoryCache(ttl_seconds=30*24*3600)
+   ```
+
+3. **Ne felejtsd el a cache eviction-t**
+   ```python
+   # ROSSZ: Végtelen növekedés
+   cache = MemoryCache(max_size=None)  # Memória leak!
+   ```
+
+4. **Ne cache-elj érzékeny adatokat**
+   ```python
+   # ROSSZ: Jelszó cache-ben
+   cache.set("password", user_password)  # Biztonsági kockázat!
+   ```
+
+---
+
 ## Összesített Hatás
 
 ### Teljes Példa: Egyszerű Lekérdezés
