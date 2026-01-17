@@ -1,13 +1,14 @@
 /**
  * Main App component.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChatWindow } from './components/ChatWindow';
 import { ChatInput } from './components/ChatInput';
 import { DebugPanel } from './components/DebugPanel';
+import { DocumentUpload } from './components/DocumentUpload';
 import { api } from './api';
 import { getUserId, getSessionId, resetSessionId } from './utils';
-import { ChatMessage, ToolUsed, MemorySnapshot } from './types';
+import { ChatMessage, ToolUsed, MemorySnapshot, RAGContext, RAGMetrics } from './types';
 import './App.css';
 
 function App() {
@@ -16,10 +17,32 @@ function App() {
   const [debugOpen, setDebugOpen] = useState(false);
   const [lastToolsUsed, setLastToolsUsed] = useState<ToolUsed[]>([]);
   const [memorySnapshot, setMemorySnapshot] = useState<MemorySnapshot | null>(null);
+  const [ragContext, setRagContext] = useState<RAGContext | null>(null);
+  const [ragMetrics, setRagMetrics] = useState<RAGMetrics | null>(null);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);  // MCP debug steps
+  const [ragStats, setRagStats] = useState<{ documentCount: number; chunkCount: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const userId = getUserId();
   const sessionId = getSessionId();
+
+  // Load RAG stats on mount
+  useEffect(() => {
+    loadRagStats();
+  }, [userId]);
+
+  const loadRagStats = async () => {
+    try {
+      const stats = await api.getRagStats(userId);
+      setRagStats({
+        documentCount: stats.document_count,
+        chunkCount: stats.chunk_count,
+      });
+    } catch (error) {
+      // Silently fail if RAG not available
+      console.log('RAG stats not available:', error);
+    }
+  };
 
   const handleResetContext = async () => {
     if (!confirm('Are you sure you want to reset the conversation history? This will clear all messages.')) {
@@ -99,6 +122,18 @@ function App() {
       setMessages((prev) => (isReset ? [assistantMessage] : [...prev, assistantMessage]));
       setLastToolsUsed(response.tools_used);
       setMemorySnapshot(response.memory_snapshot);
+
+      // Extract RAG context and metrics if available
+      if (response.rag_context) {
+        setRagContext(response.rag_context);
+      }
+      if (response.rag_metrics) {
+        setRagMetrics(response.rag_metrics);
+      }
+      // Extract debug logs (MCP steps)
+      if (response.debug_logs) {
+        setDebugLogs(response.debug_logs);
+      }
     } catch (err: any) {
       console.error('Error sending message:', err);
       setError(err.response?.data?.detail || err.message || 'An error occurred');
@@ -122,8 +157,13 @@ function App() {
       <header className="app-header">
         <h1>AI Agent Demo</h1>
         <div className="header-info">
+          {ragStats && (
+            <span className="rag-stats">
+              📄 Docs: {ragStats.documentCount} | Chunks: {ragStats.chunkCount}
+            </span>
+          )}
           <span className="user-id">User: {userId.substring(0, 20)}...</span>
-          <button 
+          <button
             className="reset-button"
             onClick={handleResetContext}
             disabled={isLoading}
@@ -135,10 +175,18 @@ function App() {
       </header>
 
       <main className="app-main">
+        {/* Sidebar with DocumentUpload */}
+        <aside className="sidebar">
+          <DocumentUpload
+            userId={userId}
+            onUploadSuccess={loadRagStats}
+          />
+        </aside>
+
         <div className="chat-container">
           <ChatWindow messages={messages} isLoading={isLoading} />
           <ChatInput onSend={handleSendMessage} disabled={isLoading} />
-          
+
           {error && (
             <div className="error-banner">
               <strong>Error:</strong> {error}
@@ -150,6 +198,9 @@ function App() {
         <DebugPanel
           toolsUsed={lastToolsUsed}
           memorySnapshot={memorySnapshot}
+          ragContext={ragContext}
+          ragMetrics={ragMetrics}
+          debugLogs={debugLogs}
           isOpen={debugOpen}
           onToggle={() => setDebugOpen(!debugOpen)}
         />

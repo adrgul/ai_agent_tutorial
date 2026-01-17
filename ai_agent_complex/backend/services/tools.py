@@ -1,5 +1,5 @@
 """
-Service layer - LangGraph agent tools implementation.
+Service layer - LangGraph agent tools implementation using LangChain tool format.
 Following SOLID: Single Responsibility - each tool wrapper has one clear purpose.
 """
 from typing import Dict, Any, Optional
@@ -8,16 +8,33 @@ import json
 from datetime import datetime
 import logging
 
+from langchain_core.tools import tool, StructuredTool
+from pydantic import BaseModel, Field
+
+# Observability imports
+from observability.metrics import record_tool_call
+
 from domain.interfaces import (
     IWeatherClient, IGeocodeClient, IIPGeolocationClient,
-    IFXRatesClient, ICryptoPriceClient, IConversationRepository
+    IFXRatesClient, ICryptoPriceClient, IConversationRepository,
+    IDeepWikiMCPClient
 )
 
 logger = logging.getLogger(__name__)
 
 
+# Tool dependency holders (for injection)
+_weather_client: Optional[IWeatherClient] = None
+_geocode_client: Optional[IGeocodeClient] = None
+_ip_client: Optional[IIPGeolocationClient] = None
+_fx_client: Optional[IFXRatesClient] = None
+_crypto_client: Optional[ICryptoPriceClient] = None
+_conversation_repo: Optional[IConversationRepository] = None
+_file_data_dir: str = "data/files"
+
+
 class WeatherTool:
-    """Weather forecast tool."""
+    """Weather forecast tool using MCP Weather Tool."""
     
     def __init__(self, client: IWeatherClient):
         self.client = client
@@ -25,9 +42,10 @@ class WeatherTool:
         self.description = "Get weather forecast for a city or coordinates. Useful when user asks about weather, temperature, or forecast."
     
     async def execute(self, city: Optional[str] = None, lat: Optional[float] = None, lon: Optional[float] = None) -> Dict[str, Any]:
-        """Get weather forecast."""
-        logger.info(f"Weather tool called: city={city}, lat={lat}, lon={lon}")
-        result = await self.client.get_forecast(city=city, lat=lat, lon=lon)
+        """Get weather forecast via MCP Weather Tool."""
+        with record_tool_call("weather"):
+            logger.info(f"MCP Weather Tool called: city={city}, lat={lat}, lon={lon}")
+            result = await self.client.get_forecast(city=city, lat=lat, lon=lon)
         
         if "error" not in result:
             # Format result for agent with today and tomorrow summary
@@ -56,13 +74,13 @@ class WeatherTool:
                         "avg_temp": tomorrow_avg
                     } if tomorrow_avg else None
                 },
-                "system_message": f"Fetched weather forecast for location ({result['location']['latitude']}, {result['location']['longitude']}). {summary}"
+                "system_message": f"Fetched weather forecast via MCP Weather Tool for location ({result['location']['latitude']}, {result['location']['longitude']}). {summary}"
             }
         else:
             return {
                 "success": False,
                 "error": result["error"],
-                "system_message": f"Failed to fetch weather: {result['error']}"
+                "system_message": f"Failed to fetch weather via MCP Weather Tool: {result['error']}"
             }
 
 
@@ -76,31 +94,32 @@ class GeocodeTool:
     
     async def execute(self, address: Optional[str] = None, lat: Optional[float] = None, lon: Optional[float] = None) -> Dict[str, Any]:
         """Geocode or reverse geocode."""
-        logger.info(f"Geocode tool called: address={address}, lat={lat}, lon={lon}")
+        with record_tool_call("geocode"):
+            logger.info(f"Geocode tool called: address={address}, lat={lat}, lon={lon}")
         
-        if address:
-            result = await self.client.geocode(address)
-        elif lat is not None and lon is not None:
-            result = await self.client.reverse_geocode(lat, lon)
-        else:
-            return {
-                "success": False,
-                "error": "Either address or coordinates required",
-                "system_message": "Geocoding failed: missing parameters"
-            }
-        
-        if "error" not in result:
-            return {
-                "success": True,
-                "data": result,
-                "system_message": f"Geocoded location: {result.get('display_name', 'Unknown')}"
-            }
-        else:
-            return {
-                "success": False,
-                "error": result["error"],
-                "system_message": f"Geocoding failed: {result['error']}"
-            }
+            if address:
+                result = await self.client.geocode(address)
+            elif lat is not None and lon is not None:
+                result = await self.client.reverse_geocode(lat, lon)
+            else:
+                return {
+                    "success": False,
+                    "error": "Either address or coordinates required",
+                    "system_message": "Geocoding failed: missing parameters"
+                }
+            
+            if "error" not in result:
+                return {
+                    "success": True,
+                    "data": result,
+                    "system_message": f"Geocoded location: {result.get('display_name', 'Unknown')}"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": result["error"],
+                    "system_message": f"Geocoding failed: {result['error']}"
+                }
 
 
 class IPGeolocationTool:
@@ -109,19 +128,24 @@ class IPGeolocationTool:
     def __init__(self, client: IIPGeolocationClient):
         self.client = client
         self.name = "ip_geolocation"
-        self.description = "Get geographic location from IP address. Useful when user provides or asks about IP addresses."
+        self.description = "Get geographic location from IP address. Can auto-detect user's current location if no IP provided. Useful for detecting user location."
     
-    async def execute(self, ip_address: str) -> Dict[str, Any]:
-        """Get location from IP."""
-        logger.info(f"IP geolocation tool called: ip={ip_address}")
+    async def execute(self, ip_address: str = "") -> Dict[str, Any]:
+        """Get location from IP. If ip_address is empty, auto-detects user's location."""
+        logger.info(f"IP geolocation tool called: ip={ip_address or 'auto-detect'}")
         result = await self.client.get_location(ip_address)
         
         if "error" not in result:
             location_str = f"{result.get('city', 'Unknown')}, {result.get('country', 'Unknown')}"
+            ip_str = result.get('ip', ip_address or 'auto-detected')
             return {
                 "success": True,
                 "data": result,
-                "system_message": f"Resolved IP {ip_address} to {location_str} (lat: {result.get('latitude')}, lon: {result.get('longitude')})"
+                "city": result.get('city'),  # Make city easily accessible for dependencies
+                "country": result.get('country'),
+                "latitude": result.get('latitude'),
+                "longitude": result.get('longitude'),
+                "system_message": f"Resolved IP {ip_str} to {location_str} (lat: {result.get('latitude')}, lon: {result.get('longitude')})"
             }
         else:
             return {
@@ -165,7 +189,7 @@ class CryptoPriceTool:
     def __init__(self, client: ICryptoPriceClient):
         self.client = client
         self.name = "crypto_price"
-        self.description = "Get current cryptocurrency prices. Useful when user asks about Bitcoin, Ethereum, or other crypto prices."
+        self.description = "Get current cryptocurrency prices ONLY (Bitcoin, Ethereum, Dogecoin, etc.). DO NOT use for stock prices (AAPL, MSFT, GOOGL, TSLA, etc.) - use AlphaVantage tools for stocks."
     
     async def execute(self, symbol: str, fiat: str = "USD") -> Dict[str, Any]:
         """Get crypto price."""
@@ -260,4 +284,85 @@ class HistorySearchTool:
                 "success": False,
                 "error": str(e),
                 "system_message": f"History search failed: {e}"
+            }
+
+
+class DeepWikiTool:
+    """
+    DeepWiki MCP tool for GitHub repository knowledge retrieval.
+    
+    Provides access to:
+    - Repository wiki structure reading
+    - Wiki page content retrieval
+    - Question answering about repositories
+    """
+    
+    def __init__(self, client: IDeepWikiMCPClient):
+        self.client = client
+        self.name = "deepwiki"
+        self.description = (
+            "Access GitHub repository wikis and ask questions about repositories. "
+            "Can read wiki structure, get wiki page content, or answer questions about a repo. "
+            "Useful when user asks about GitHub repositories, their documentation, or wiki content."
+        )
+    
+    async def execute(
+        self, 
+        question: Optional[str] = None,
+        repo_url: Optional[str] = None,
+        page_title: Optional[str] = None,
+        action: str = "ask_question"
+    ) -> Dict[str, Any]:
+        """
+        Execute DeepWiki tool.
+        
+        Args:
+            question: Question to ask about the repository
+            repo_url: GitHub repository URL
+            page_title: Wiki page title (for get_wiki_content action)
+            action: Action to perform (ask_question, read_wiki_structure, get_wiki_content)
+        """
+        logger.info(f"DeepWiki tool called: action={action}, repo={repo_url}, question={question}")
+        
+        try:
+            if action == "read_wiki_structure" and repo_url:
+                result = await self.client.read_wiki_structure(repo_url)
+            elif action == "get_wiki_content" and repo_url and page_title:
+                result = await self.client.get_wiki_content(repo_url, page_title)
+            elif action == "ask_question" and question:
+                result = await self.client.ask_question(question, repo_url)
+            else:
+                return {
+                    "success": False,
+                    "error": "Invalid arguments. For 'ask_question' provide 'question', for 'read_wiki_structure' provide 'repo_url', for 'get_wiki_content' provide both 'repo_url' and 'page_title'.",
+                    "system_message": "DeepWiki tool invocation failed: invalid arguments"
+                }
+            
+            if result.get("success"):
+                # Format success response
+                if action == "ask_question":
+                    message = f"DeepWiki answered: {result.get('answer', 'No answer')}"
+                elif action == "read_wiki_structure":
+                    message = f"Retrieved wiki structure for {repo_url}"
+                else:
+                    message = f"Retrieved wiki page '{page_title}' from {repo_url}"
+                
+                return {
+                    "success": True,
+                    "data": result,
+                    "system_message": message
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": result.get("error", "Unknown error"),
+                    "system_message": f"DeepWiki tool failed: {result.get('error', 'Unknown error')}"
+                }
+                
+        except Exception as e:
+            logger.error(f"DeepWiki tool error: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "system_message": f"DeepWiki tool execution error: {e}"
             }

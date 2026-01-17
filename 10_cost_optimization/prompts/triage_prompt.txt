@@ -1,0 +1,5 @@
+Classify query type. Answer with ONE word only: simple, retrieval, or complex.
+
+Query: {user_input}
+
+Classification:

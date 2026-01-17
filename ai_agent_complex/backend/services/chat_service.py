@@ -8,6 +8,10 @@ from typing import Dict, Any, List
 import logging
 from datetime import datetime
 
+# Observability imports
+from observability.metrics import AgentRequestContext
+from observability.correlation import correlation_context
+
 from domain.models import (
     Message, Memory, WorkflowState, ChatRequest, ChatResponse,
     UserProfile, ConversationHistory
@@ -56,11 +60,16 @@ class ChatService:
         session_id = request.session_id or user_id
         message = request.message.strip()
         
-        logger.info(f"Processing message from user {user_id}, session {session_id}")
+        # Start request correlation and metrics tracking
+        async with AgentRequestContext() as ctx:
+            with correlation_context() as req_id:
+                logger.info(f"Processing message from user {user_id}, session {session_id} [request_id={req_id}]")
         
-        # Check for reset context command
-        if message.lower() == "reset context":
-            return await self._handle_reset_context(user_id, session_id)
+                # Check for reset context command
+                if message.lower() == "reset context":
+                    result = await self._handle_reset_context(user_id, session_id)
+                    ctx.set_status("success")
+                    return result
         
         # Load user profile (creates if doesn't exist)
         profile = await self.user_repo.get_profile(user_id)
@@ -86,7 +95,10 @@ class ChatService:
         final_answer = agent_result["final_answer"]
         tools_called = agent_result["tools_called"]
         agent_messages = agent_result["messages"]
-        
+        rag_context = agent_result.get("rag_context", {})  # NEW
+        rag_metrics = agent_result.get("rag_metrics", {})  # NEW
+        debug_logs = agent_result.get("debug_logs", [])  # NEW: MCP debug logs
+
         # Persist all messages from agent (system messages, tool messages, assistant message)
         for msg in agent_messages:
             if isinstance(msg, SystemMessage):
@@ -99,23 +111,23 @@ class ChatService:
                     session_id,
                     Message(role="assistant", content=msg.content, timestamp=datetime.now())
                 )
-        
+
         # Check if profile needs updating based on conversation
         await self._check_profile_updates(user_id, message, profile)
-        
+
         # Reload profile to get any updates
         updated_profile = await self.user_repo.get_profile(user_id)
-        
+
         # Build response
         tools_used = [
             {
-                "name": tc.tool_name,
-                "arguments": tc.arguments,
-                "success": tc.error is None
+                "name": tc.get("tool_name", "unknown") if isinstance(tc, dict) else tc.tool_name,
+                "arguments": tc.get("arguments", {}) if isinstance(tc, dict) else tc.arguments,
+                "success": tc.get("success", tc.get("error") is None) if isinstance(tc, dict) else tc.error is None
             }
             for tc in tools_called
         ]
-        
+
         memory_snapshot = {
             "preferences": {
                 "language": updated_profile.language,
@@ -125,14 +137,52 @@ class ChatService:
             "workflow_state": memory.workflow_state.model_dump(),
             "message_count": len(history.messages) + len(agent_messages)
         }
-        
+
+        # NEW: Build RAG context for API response
+        rag_context_response = None
+        if rag_context and rag_context.get("has_knowledge", False):
+            from domain.models import RAGContext, RAGChunk
+
+            # Extract chunk previews for debug panel
+            chunks = []
+            for chunk_dict in rag_context.get("retrieved_chunks", [])[:5]:  # Limit to 5 for preview
+                chunks.append(RAGChunk(
+                    chunk_id=chunk_dict.get("chunk_id", ""),
+                    text=chunk_dict.get("text", "")[:200],  # First 200 chars
+                    source_label=chunk_dict.get("source_label", ""),
+                    score=chunk_dict.get("score", 0.0)
+                ))
+
+            rag_context_response = RAGContext(
+                rewritten_query=rag_context.get("rewritten_query"),
+                citations=rag_context.get("citations", []),
+                chunk_count=len(rag_context.get("retrieved_chunks", [])),
+                used_in_response=rag_context.get("used_in_response", False),
+                chunks=chunks
+            )
+
+        # NEW: Build RAG metrics for API response
+        rag_metrics_response = None
+        if rag_metrics:
+            from domain.models import RAGMetrics
+            rag_metrics_response = RAGMetrics(
+                retrieval_latency_ms=rag_metrics.get("retrieval_latency_ms", 0.0),
+                chunk_count=rag_metrics.get("chunk_count", 0),
+                max_similarity_score=rag_metrics.get("max_similarity_score", 0.0),
+                query_rewrite_latency_ms=rag_metrics.get("query_rewrite_latency_ms", 0.0),
+                total_pipeline_latency_ms=rag_metrics.get("total_pipeline_latency_ms", 0.0)
+            )
+
         logger.info(f"Message processed successfully for user {user_id}")
-        
+
         return ChatResponse(
             final_answer=final_answer,
             tools_used=tools_used,
             memory_snapshot=memory_snapshot,
-            logs=[f"Tools called: {len(tools_called)}"]
+            logs=[f"Tools called: {len(tools_called)}"],
+            rag_context=rag_context_response,  # NEW
+            rag_metrics=rag_metrics_response,   # NEW
+            debug_logs=debug_logs  # NEW: MCP debug information
         )
     
     async def _handle_reset_context(self, user_id: str, session_id: str) -> ChatResponse:

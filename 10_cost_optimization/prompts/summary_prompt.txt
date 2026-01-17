@@ -1,0 +1,9 @@
+Provide a clear, concise answer to the following question.
+
+Question: {user_input}
+
+{retrieval_context}
+
+{reasoning_output}
+
+Answer:

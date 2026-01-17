@@ -1,0 +1,9 @@
+You are an expert analyst. Provide a thorough, well-reasoned response to the following complex question.
+
+Use step-by-step reasoning and consider multiple perspectives.
+
+Question: {user_input}
+
+{context}
+
+Detailed Analysis:

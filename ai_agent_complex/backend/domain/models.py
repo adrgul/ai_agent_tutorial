@@ -65,12 +65,41 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
 
 
+class RAGChunk(BaseModel):
+    """RAG chunk metadata for API responses."""
+    chunk_id: str
+    text: str
+    source_label: str
+    score: float
+
+
+class RAGContext(BaseModel):
+    """RAG context in API responses."""
+    rewritten_query: Optional[str] = None
+    citations: List[str] = Field(default_factory=list)
+    chunk_count: int = 0
+    used_in_response: bool = False
+    chunks: List[RAGChunk] = Field(default_factory=list)  # For chunk previews
+
+
+class RAGMetrics(BaseModel):
+    """RAG performance metrics."""
+    retrieval_latency_ms: float = 0.0
+    chunk_count: int = 0
+    max_similarity_score: float = 0.0
+    query_rewrite_latency_ms: float = 0.0
+    total_pipeline_latency_ms: float = 0.0
+
+
 class ChatResponse(BaseModel):
     """Response sent back to frontend."""
     final_answer: str
     tools_used: List[Dict[str, Any]] = Field(default_factory=list)
     memory_snapshot: Dict[str, Any] = Field(default_factory=dict)
     logs: Optional[List[str]] = None
+    rag_context: Optional[RAGContext] = None  # NEW: RAG context
+    rag_metrics: Optional[RAGMetrics] = None  # NEW: RAG metrics
+    debug_logs: List[str] = Field(default_factory=list)  # NEW: Debug logs for MCP steps
 
 
 class ProfileUpdateRequest(BaseModel):

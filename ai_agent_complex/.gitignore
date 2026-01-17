@@ -20,6 +20,7 @@ npm-debug.log*
 # Data directories
 backend/data/
 data/
+document/
 
 # IDE
 .vscode/

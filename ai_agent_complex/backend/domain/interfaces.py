@@ -74,6 +74,58 @@ class IWeatherClient(IToolClient):
         pass
 
 
+class IMCPClient(ABC):
+    """Base interface for MCP (Model Context Protocol) client."""
+    
+    @abstractmethod
+    async def connect(self, server_url: str) -> None:
+        """Connect to MCP server."""
+        pass
+    
+    @abstractmethod
+    async def list_tools(self) -> List[Dict[str, Any]]:
+        """List all available tools from the MCP server."""
+        pass
+    
+    @abstractmethod
+    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Call a tool on the MCP server."""
+        pass
+    
+    @abstractmethod
+    async def disconnect(self) -> None:
+        """Disconnect from MCP server."""
+        pass
+
+
+class IMCPWeatherClient(IWeatherClient):
+    """Interface for MCP-based weather service."""
+    
+    @abstractmethod
+    async def get_forecast(self, city: Optional[str] = None, lat: Optional[float] = None, lon: Optional[float] = None) -> Dict[str, Any]:
+        """Get weather forecast via MCP protocol."""
+        pass
+
+
+class IDeepWikiMCPClient(IToolClient):
+    """Interface for DeepWiki MCP client - repository knowledge retrieval."""
+    
+    @abstractmethod
+    async def read_wiki_structure(self, repo_url: str) -> Dict[str, Any]:
+        """Read wiki structure of a GitHub repository."""
+        pass
+    
+    @abstractmethod
+    async def get_wiki_content(self, repo_url: str, page_title: str) -> Dict[str, Any]:
+        """Get content of a specific wiki page."""
+        pass
+    
+    @abstractmethod
+    async def ask_question(self, question: str, repo_url: Optional[str] = None) -> Dict[str, Any]:
+        """Ask a question about a repository."""
+        pass
+
+
 class IGeocodeClient(IToolClient):
     """Interface for geocoding service."""
     
@@ -108,8 +160,52 @@ class IFXRatesClient(IToolClient):
 
 class ICryptoPriceClient(IToolClient):
     """Interface for cryptocurrency prices."""
-    
+
     @abstractmethod
     async def get_price(self, symbol: str, fiat: str = "USD") -> Dict[str, Any]:
         """Get crypto price."""
+        pass
+
+
+# RAG-specific interfaces
+class IEmbeddingService(ABC):
+    """Interface for embedding services."""
+
+    @abstractmethod
+    async def embed_texts(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings for multiple texts."""
+        pass
+
+    @abstractmethod
+    async def embed_query(self, query: str) -> List[float]:
+        """Generate embedding for a single query."""
+        pass
+
+
+class IVectorStore(ABC):
+    """Interface for vector store operations."""
+
+    @abstractmethod
+    async def add_chunks(self, chunks: List[Any], embeddings: List[List[float]]) -> None:
+        """Add chunks with their embeddings to the store."""
+        pass
+
+    @abstractmethod
+    async def search(self, query_embedding: List[float], user_id: str, top_k: int = 5) -> List[Any]:
+        """Search for similar chunks filtered by user_id."""
+        pass
+
+    @abstractmethod
+    async def delete_document(self, doc_id: str, user_id: str) -> int:
+        """Delete all chunks for a document. Returns count of deleted chunks."""
+        pass
+
+    @abstractmethod
+    async def get_stats(self, user_id: str) -> Dict[str, Any]:
+        """Get statistics for user's documents."""
+        pass
+
+    @abstractmethod
+    async def list_documents(self, user_id: str) -> List[Dict[str, Any]]:
+        """List all documents for a user."""
         pass
