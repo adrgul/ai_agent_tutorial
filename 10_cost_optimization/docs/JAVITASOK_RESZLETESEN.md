@@ -1708,7 +1708,617 @@ def _build_prompt(self, state: AgentState) -> str:
 
 ---
 
+## 🎯 Gyakorló Feladatok Hallgatóknak
+
+Ezek a feladatok további költségoptimalizálási technikákat vezetnek be, amelyek tovább javítják az alkalmazás hatékonyságát és költséghatékonyságát.
+
+---
+
+### Feladat 1: Streaming Response Implementálás
+
+**Nehézség**: ⭐⭐⭐ (Közepes)
+
+**Cél**: Implementálj streaming választ a Summary node-ban, hogy a felhasználó hamarabb láthasson részleges eredményeket.
+
+**Mit kell csinálni:**
+
+1. Módosítsd az `OpenAIClient` osztályt `app/llm/openai_client.py`-ben
+2. Adj hozzá `stream=True` paramétert a `complete()` metódushoz
+3. Implementálj `stream_complete()` metódust, ami yield-eli a tokeneket
+4. Módosítsd `app/nodes/summary_node.py`-t, hogy használja a streaming-et
+5. Frissítsd a FastAPI endpoint-ot `app/main.py`-ben `StreamingResponse`-ra
+
+**Kód vázlat:**
+
+```python
+# app/llm/openai_client.py
+async def stream_complete(
+    self, 
+    messages: List[Dict], 
+    model_name: str,
+    max_tokens: int = 1000
+) -> AsyncGenerator[str, None]:
+    """Stream LLM response token-by-token."""
+    response = await self.client.chat.completions.create(
+        model=model_name,
+        messages=messages,
+        max_tokens=max_tokens,
+        stream=True  # ← Fontos!
+    )
+    
+    async for chunk in response:
+        if chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content
+```
+
+**Mért hatás:**
+- ⏱️ Észlelt latency: -60% (user hamarabb lát eredményt)
+- 💰 Költség: változatlan
+- 📊 UX: jelentősen jobb
+
+**Ellenőrzés:**
+```bash
+curl -N http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"user_input": "What is Docker?"}' \
+| jq -r '.response'
+# Látni kell, ahogy a válasz fokozatosan érkezik
+```
+
+---
+
+### Feladat 2: Response Caching (Teljes Node Cache)
+
+**Nehézség**: ⭐⭐ (Könnyű)
+
+**Cél**: Implementálj teljes válasz cache-t a Summary node-ra, hogy ugyanazokra a kérdésekre azonnali választ adjon.
+
+**Mit kell csinálni:**
+
+1. Adj hozzá `cache` paramétert a `SummaryNode.__init__()`-hez
+2. Generálj cache key-t az `user_input` + `classification` alapján
+3. Cache-eld a teljes `final_response`-t
+4. Ellenőrizd a cache-t a Summary node futása előtt
+5. Állítsd be a TTL-t 24 órára (stabil válaszok esetén)
+
+**Kód vázlat:**
+
+```python
+# app/nodes/summary_node.py
+async def execute(self, state: AgentState) -> Dict:
+    """Execute summary with response caching."""
+    
+    # Generate cache key
+    cache_content = f"{state['user_input']}:{state.get('classification', '')}"
+    cache_key = generate_cache_key("summary_response", cache_content)
+    
+    # Check cache
+    cached_response = await self.cache.get(cache_key)
+    if cached_response is not None:
+        logger.info("Summary cache HIT - returning cached response")
+        return {
+            "final_response": cached_response,
+            "cache_hit": True
+        }
+    
+    # Cache MISS - generate response
+    # ... (meglévő kód) ...
+    
+    # Save to cache
+    await self.cache.set(cache_key, final_response)
+    
+    return {"final_response": final_response, "cache_hit": False}
+```
+
+**Konfigurálás:**
+
+```python
+# app/config.py
+class Settings(BaseSettings):
+    summary_cache_ttl_seconds: int = 86400  # 24 óra
+```
+
+**Mért hatás:**
+- 💰 Költség: -100% (cache hit esetén)
+- ⏱️ Latency: -95% (6s → 0.3s)
+- 📊 Cache hit ratio: 20-40% (FAQ típusú kérdéseknél)
+
+**Ellenőrzés:**
+```bash
+# Első hívás - cache miss
+time curl -X POST http://localhost:8000/query -d '{"user_input":"What is Docker?"}' -H "Content-Type: application/json"
+# ~4-6s
+
+# Második hívás - cache hit
+time curl -X POST http://localhost:8000/query -d '{"user_input":"What is Docker?"}' -H "Content-Type: application/json"
+# ~0.3s
+```
+
+---
+
+### Feladat 3: Batch Query Támogatás
+
+**Nehézség**: ⭐⭐⭐⭐ (Nehéz)
+
+**Cél**: Implementálj batch processing-et, ahol több kérdést egyszerre lehet feldolgozni, és az OpenAI batch API-t használva olcsóbban.
+
+**Mit kell csinálni:**
+
+1. Hozz létre új endpoint-ot: `POST /batch-query`
+2. Fogadj JSON array-t kérdésekkel: `{"queries": ["q1", "q2", "q3"]}`
+3. Implementálj batch feldolgozást `asyncio.gather()`-rel
+4. Használd az OpenAI Batch API-t (50% olcsóbb, de 24h késleltetéssel)
+5. Tárold a batch job ID-kat Redis-ben vagy fájlban
+6. Adj hozzá `GET /batch-status/{job_id}` endpoint-ot
+
+**Kód vázlat:**
+
+```python
+# app/main.py
+@app.post("/batch-query")
+async def batch_query(request: BatchQueryRequest):
+    """Process multiple queries in batch mode."""
+    
+    # Option 1: Aszinkron párhuzamos feldolgozás (azonnal)
+    tasks = [
+        process_query(query) 
+        for query in request.queries
+    ]
+    results = await asyncio.gather(*tasks)
+    
+    return {"results": results}
+
+# Option 2: OpenAI Batch API (24h, 50% olcsóbb)
+@app.post("/batch-query-async")
+async def batch_query_async(request: BatchQueryRequest):
+    """Submit batch job to OpenAI Batch API."""
+    
+    # Prepare batch file
+    batch_requests = [
+        {
+            "custom_id": f"request-{i}",
+            "method": "POST",
+            "url": "/v1/chat/completions",
+            "body": {
+                "model": "gpt-3.5-turbo",
+                "messages": [{"role": "user", "content": q}]
+            }
+        }
+        for i, q in enumerate(request.queries)
+    ]
+    
+    # Submit to OpenAI Batch API
+    batch = await openai.batches.create(
+        input_file_id=uploaded_file_id,
+        endpoint="/v1/chat/completions",
+        completion_window="24h"
+    )
+    
+    return {
+        "batch_id": batch.id,
+        "status": "processing",
+        "estimated_completion": "24 hours"
+    }
+```
+
+**Mért hatás:**
+- 💰 Költség: -50% (Batch API használatával)
+- ⏱️ Throughput: 5-10x (párhuzamos feldolgozás)
+- 📊 Komplexitás: +40%
+
+**Ellenőrzés:**
+```bash
+# Batch query (parallel)
+curl -X POST http://localhost:8000/batch-query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "queries": [
+      "What is Docker?",
+      "What is Kubernetes?",
+      "What is CI/CD?"
+    ]
+  }'
+```
+
+---
+
+### Feladat 4: Token Usage Limit & Rate Limiting
+
+**Nehézség**: ⭐⭐ (Könnyű-Közepes)
+
+**Cél**: Implementálj token quota rendszert, ami megállítja a feldolgozást, ha a felhasználó túllépi a napi limitet.
+
+**Mit kell csinálni:**
+
+1. Hozz létre `TokenQuotaTracker` osztályt
+2. Tárold a felhasználónkénti token használatot in-memory vagy Redis-ben
+3. Ellenőrizd a quota-t minden request előtt
+4. Add vissza `429 Too Many Requests` hibát, ha túllépés van
+5. Adj hozzá `/quota` endpoint-ot a fennmaradó quota ellenőrzésére
+
+**Kód vázlat:**
+
+```python
+# app/utils/quota.py
+class TokenQuotaTracker:
+    """Track per-user token usage with daily limits."""
+    
+    def __init__(self, daily_limit: int = 100000):
+        self._usage = {}  # {user_id: {date: token_count}}
+        self._daily_limit = daily_limit
+    
+    def check_quota(self, user_id: str) -> bool:
+        """Check if user has remaining quota."""
+        today = datetime.now().date()
+        usage_today = self._usage.get(user_id, {}).get(today, 0)
+        return usage_today < self._daily_limit
+    
+    def add_usage(self, user_id: str, tokens: int):
+        """Add token usage for user."""
+        today = datetime.now().date()
+        if user_id not in self._usage:
+            self._usage[user_id] = {}
+        self._usage[user_id][today] = (
+            self._usage[user_id].get(today, 0) + tokens
+        )
+    
+    def get_remaining(self, user_id: str) -> int:
+        """Get remaining quota."""
+        today = datetime.now().date()
+        used = self._usage.get(user_id, {}).get(today, 0)
+        return max(0, self._daily_limit - used)
+
+# app/main.py
+quota_tracker = TokenQuotaTracker(daily_limit=100000)
+
+@app.post("/query")
+async def query(request: QueryRequest, user_id: str = "default"):
+    # Check quota
+    if not quota_tracker.check_quota(user_id):
+        raise HTTPException(
+            status_code=429,
+            detail=f"Daily token quota exceeded. Try again tomorrow."
+        )
+    
+    # Process query
+    result = await agent.run(request.user_input)
+    
+    # Track usage
+    quota_tracker.add_usage(user_id, result["total_tokens"])
+    
+    return result
+
+@app.get("/quota")
+async def get_quota(user_id: str = "default"):
+    """Check remaining quota."""
+    return {
+        "remaining_tokens": quota_tracker.get_remaining(user_id),
+        "daily_limit": quota_tracker._daily_limit
+    }
+```
+
+**Konfigurálás:**
+
+```python
+# app/config.py
+class Settings(BaseSettings):
+    token_quota_daily: int = 100000  # 100K tokens/day
+    token_quota_enabled: bool = True
+```
+
+**Mért hatás:**
+- 💰 Költség védelem: Megakadályozza a váratlan költségeket
+- 🛡️ Rate limiting: Védelem abuse ellen
+- 📊 Fair use: Egyenletes terhelés
+
+**Ellenőrzés:**
+```bash
+# Check quota
+curl http://localhost:8000/quota?user_id=test_user
+# {"remaining_tokens": 95000, "daily_limit": 100000}
+
+# Exhaust quota (loop)
+for i in {1..100}; do
+  curl -X POST http://localhost:8000/query \
+    -H "Content-Type: application/json" \
+    -d '{"user_input":"Test"}' \
+    -H "X-User-ID: test_user"
+done
+
+# Should eventually get 429 error
+```
+
+---
+
+### Feladat 5: Semantic Cache (Vector-based Caching)
+
+**Nehézség**: ⭐⭐⭐⭐⭐ (Haladó)
+
+**Cél**: Implementálj szemantikus cache-t, ami hasonló kérdéseket is felismer (nem csak exact match).
+
+**Koncepció:**
+A hagyományos cache csak akkor talál, ha **pontosan ugyanaz** a kérdés. A semantic cache **hasonló jelentésű** kérdésekre is cache-ből válaszol.
+
+**Példa:**
+```
+Query 1: "What is Docker?"
+Query 2: "Can you explain Docker to me?"
+Query 3: "Tell me about Docker"
+
+→ Hagyományos cache: 3 cache miss
+→ Semantic cache: 1 cache miss, 2 cache hit (hasonlóság alapján)
+```
+
+**Mit kell csinálni:**
+
+1. Telepítsd a `faiss-cpu` vagy `chromadb` library-t
+2. Hozz létre `SemanticCache` osztályt
+3. Minden kérdést embeddelj (OpenAI `text-embedding-ada-002`)
+4. Tárold az embedding + válasz párokat vector DB-ben
+5. Keresés: keresd a legközelebbi embeddinget (cosine similarity)
+6. Ha similarity > 0.95, add vissza a cached választ
+
+**Kód vázlat:**
+
+```python
+# app/cache/semantic_cache.py
+import numpy as np
+from typing import Optional, List
+import openai
+
+class SemanticCache:
+    """Vector-based cache for semantic similarity matching."""
+    
+    def __init__(self, similarity_threshold: float = 0.95):
+        self._embeddings = []  # List of embedding vectors
+        self._responses = []   # Corresponding responses
+        self._queries = []     # Original queries (for debugging)
+        self._threshold = similarity_threshold
+    
+    async def _get_embedding(self, text: str) -> np.ndarray:
+        """Get embedding vector from OpenAI."""
+        response = await openai.embeddings.create(
+            model="text-embedding-ada-002",
+            input=text
+        )
+        return np.array(response.data[0].embedding)
+    
+    def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
+        """Calculate cosine similarity between two vectors."""
+        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+    
+    async def get(self, query: str) -> Optional[str]:
+        """Find similar cached response."""
+        if not self._embeddings:
+            return None
+        
+        # Get query embedding
+        query_emb = await self._get_embedding(query)
+        
+        # Find most similar
+        max_similarity = 0.0
+        best_idx = -1
+        
+        for i, cached_emb in enumerate(self._embeddings):
+            similarity = self._cosine_similarity(query_emb, cached_emb)
+            if similarity > max_similarity:
+                max_similarity = similarity
+                best_idx = i
+        
+        # Check threshold
+        if max_similarity >= self._threshold:
+            logger.info(
+                f"Semantic cache HIT: '{query}' ≈ '{self._queries[best_idx]}' "
+                f"(similarity: {max_similarity:.3f})"
+            )
+            return self._responses[best_idx]
+        
+        logger.info(f"Semantic cache MISS (best: {max_similarity:.3f})")
+        return None
+    
+    async def set(self, query: str, response: str):
+        """Store query-response pair with embedding."""
+        embedding = await self._get_embedding(query)
+        self._embeddings.append(embedding)
+        self._responses.append(response)
+        self._queries.append(query)
+```
+
+**Használat:**
+
+```python
+# app/nodes/summary_node.py
+from app.cache.semantic_cache import SemanticCache
+
+class SummaryNode:
+    def __init__(self, semantic_cache: SemanticCache):
+        self.semantic_cache = semantic_cache
+    
+    async def execute(self, state: AgentState) -> Dict:
+        # Check semantic cache
+        cached = await self.semantic_cache.get(state["user_input"])
+        if cached is not None:
+            return {"final_response": cached, "semantic_cache_hit": True}
+        
+        # Generate response
+        response = await self._generate_response(state)
+        
+        # Store in semantic cache
+        await self.semantic_cache.set(state["user_input"], response)
+        
+        return {"final_response": response}
+```
+
+**Költség-Haszon Elemzés:**
+
+| Művelet | Költség | Hatás |
+|---------|---------|-------|
+| Embedding generálás | $0.0001/1K tok | +$0.00001 per query |
+| Semantic search | CPU only | Negligible |
+| Cache hit saving | $0.0015 | **150x megtérülés** |
+
+**Akkor éri meg, ha**: Cache hit rate > 0.5% (azaz 200 kérdésből 1 hasonló)
+
+**Mért hatás:**
+- 💰 Költség: +1% (embedding), -20% (cache hits)
+- 🎯 Cache hit rate: +15-25% (hasonló kérdéseknél)
+- 📊 UX: Konzisztens válaszok hasonló kérdésekre
+
+**Ellenőrzés:**
+```python
+# Test semantic similarity
+queries = [
+    "What is Docker?",
+    "Can you explain Docker?",
+    "Tell me about Docker",
+    "Docker nedir?",  # Turkish - should be similar
+    "What is Kubernetes?",  # Different - should NOT match
+]
+
+for query in queries:
+    result = await semantic_cache.get(query)
+    print(f"{query}: {'HIT' if result else 'MISS'}")
+
+# Expected:
+# What is Docker?: MISS (first)
+# Can you explain Docker?: HIT (similarity ~0.96)
+# Tell me about Docker: HIT (similarity ~0.97)
+# Docker nedir?: HIT (similarity ~0.92)
+# What is Kubernetes?: MISS (similarity ~0.75)
+```
+
+---
+
+### Feladat 6: Model Fallback Strategy
+
+**Nehézség**: ⭐⭐⭐ (Közepes)
+
+**Cél**: Implementálj automatikus fallback stratégiát, ami olcsóbb modellre vált, ha a drágább modell hibázik vagy túl lassú.
+
+**Mit kell csinálni:**
+
+1. Módosítsd az `OpenAIClient`-et, hogy támogassa a model tier fallback-et
+2. Ha GPT-4 rate limit-et kap, próbálja meg GPT-3.5-tel
+3. Ha timeout történik, próbáld újra rövidebb kontextussal
+4. Logold a fallback eseményeket Prometheus-ba
+
+**Kód vázlat:**
+
+```python
+# app/llm/openai_client.py
+class OpenAIClient:
+    async def complete_with_fallback(
+        self,
+        messages: List[Dict],
+        model_tier: ModelTier,
+        max_tokens: int = 1000,
+        timeout: int = 30
+    ) -> CompletionResponse:
+        """Complete with automatic fallback on failure."""
+        
+        # Try primary model
+        primary_model = self.model_selector.get_model_name(model_tier)
+        
+        try:
+            response = await asyncio.wait_for(
+                self.client.chat.completions.create(
+                    model=primary_model,
+                    messages=messages,
+                    max_tokens=max_tokens
+                ),
+                timeout=timeout
+            )
+            return CompletionResponse.from_openai(response)
+            
+        except asyncio.TimeoutError:
+            logger.warning(f"{primary_model} timeout, falling back...")
+            metrics.fallback_total.labels(
+                reason="timeout",
+                from_model=primary_model
+            ).inc()
+            
+            # Fallback: use cheaper model
+            fallback_tier = self._get_fallback_tier(model_tier)
+            fallback_model = self.model_selector.get_model_name(fallback_tier)
+            
+            response = await self.client.chat.completions.create(
+                model=fallback_model,
+                messages=messages,
+                max_tokens=max_tokens
+            )
+            return CompletionResponse.from_openai(response)
+            
+        except openai.RateLimitError:
+            logger.warning(f"{primary_model} rate limited, falling back...")
+            metrics.fallback_total.labels(
+                reason="rate_limit",
+                from_model=primary_model
+            ).inc()
+            
+            # Fallback to cheaper model
+            fallback_tier = self._get_fallback_tier(model_tier)
+            fallback_model = self.model_selector.get_model_name(fallback_tier)
+            
+            response = await self.client.chat.completions.create(
+                model=fallback_model,
+                messages=messages,
+                max_tokens=max_tokens
+            )
+            return CompletionResponse.from_openai(response)
+    
+    def _get_fallback_tier(self, tier: ModelTier) -> ModelTier:
+        """Get cheaper fallback tier."""
+        fallback_map = {
+            ModelTier.EXPENSIVE: ModelTier.MEDIUM,
+            ModelTier.MEDIUM: ModelTier.CHEAP,
+            ModelTier.CHEAP: ModelTier.CHEAP,  # No fallback
+        }
+        return fallback_map[tier]
+```
+
+**Mért hatás:**
+- 🛡️ Reliability: +30% (kevesebb hiba)
+- 💰 Költség: -10% (fallback olcsóbb)
+- ⏱️ Latency: -5% (gyorsabb fallback model)
+
+---
+
+## 📊 Feladatok Összesítése
+
+| Feladat | Nehézség | Költség hatás | Teljesítmény hatás | Időigény |
+|---------|----------|---------------|-------------------|----------|
+| **1. Streaming** | ⭐⭐⭐ | 0% | UX: +60% | 2-3 óra |
+| **2. Response Cache** | ⭐⭐ | -100% (hit) | -95% latency | 1-2 óra |
+| **3. Batch API** | ⭐⭐⭐⭐ | -50% | +500% throughput | 4-6 óra |
+| **4. Quota System** | ⭐⭐ | Védelem | Unchanged | 1-2 óra |
+| **5. Semantic Cache** | ⭐⭐⭐⭐⭐ | -20% | +15% cache hit | 6-8 óra |
+| **6. Model Fallback** | ⭐⭐⭐ | -10% | +30% reliability | 2-3 óra |
+
+### Ajánlott Sorrend
+
+1. **Kezdő szint**: Feladat 2 (Response Cache) → Feladat 4 (Quota)
+2. **Közepes szint**: Feladat 1 (Streaming) → Feladat 6 (Fallback)
+3. **Haladó szint**: Feladat 3 (Batch) → Feladat 5 (Semantic Cache)
+
+### Értékelési Kritériumok
+
+Minden feladathoz:
+- ✅ Működő kód implementáció
+- ✅ Unit tesztek (min. 80% coverage)
+- ✅ Prometheus metrikák integrálása
+- ✅ README frissítése használati példákkal
+- ✅ Grafana dashboard panel hozzáadása (ha releváns)
+- ✅ Cost/benefit analízis a commit message-ben
+
+**Plusz pontok:**
+- 🌟 Docker environment változók támogatása
+- 🌟 Error handling és logging
+- 🌟 API dokumentáció (OpenAPI/Swagger)
+- 🌟 Load testing eredmények (Locust/k6)
+
+---
+
 **Készítette**: AI Agent Optimization Course  
-**Dátum**: 2026. január 17.  
-**Verzió**: 1.0  
+**Dátum**: 2026. január 18.  
+**Verzió**: 1.1  
 **Licenc**: MIT - Oktatási célokra
