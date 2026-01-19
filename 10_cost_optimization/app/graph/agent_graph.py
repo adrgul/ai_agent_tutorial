@@ -103,7 +103,7 @@ class AgentGraphFactory:
         workflow.set_entry_point("triage")
         
         # Conditional routing after triage
-        def route_after_triage(state: AgentState) -> Literal["retrieval", "reasoning", "summary"]:
+        def route_after_triage(state: AgentState) -> Literal["retrieval"]:
             """
             BAD PRACTICE: Ignoring classification - always go to retrieval.
             This ensures ALL nodes run for EVERY request, regardless of actual need.
@@ -125,9 +125,7 @@ class AgentGraphFactory:
             "triage",
             route_after_triage,
             {
-                "retrieval": "retrieval",
-                "reasoning": "retrieval",  # BAD PRACTICE: Changed to always go to retrieval
-                "summary": "retrieval"     # BAD PRACTICE: Changed to always go to retrieval
+                "retrieval": "retrieval"
             }
         )
         
