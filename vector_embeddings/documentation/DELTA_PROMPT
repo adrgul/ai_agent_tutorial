@@ -1,0 +1,341 @@
+You are GitHub Copilot. You already generated (or are modifying) the existing demo application described in the base prompt (Python FastAPI + LangGraph backend, React TS frontend, Docker compose, JSON persistence, tools, SOLID/clean-ish architecture). DO NOT rewrite the whole project. Apply an incremental change-set to extend the app so it can also demonstrate a full RAG pipeline (ingestion → chunking → embedding → indexing → retrieval → answer generation), including overlapping chunking, hybrid search, and multi-tenant separation.
+
+================================================================================
+DELTA GOAL
+================================================================================
+Extend the existing app so the Embeddings + Vector DB demo also supports the RAG lesson demo:
+- Ingest .txt documents from a CLI and via API.
+- Chunk documents with configurable overlap (chunk_size + chunk_overlap).
+- Store chunk embeddings in a persistent vector store (already used or add one; must persist on disk).
+- Support multi-tenant indexing (tenant_id namespace). No cross-tenant leakage.
+- Support hybrid retrieval: dense (vector) + sparse (lexical) combined scoring.
+- Provide RAG answering: retrieve top-k chunks, build a context prompt, generate an answer with citations to chunk sources.
+- Add this as a LangGraph tool so the agent can decide to use RAG when user asks questions about uploaded documents.
+
+================================================================================
+NEW TOP-LEVEL FOLDER
+================================================================================
+Create a new folder at the REPO ROOT named: ./rag
+ALL newly created files for this delta must be placed under ./rag (subfolders allowed).
+The backend must import and use this new ./rag module/package (configure PYTHONPATH accordingly in Dockerfiles / runtime if needed).
+
+Example structure under ./rag (you may adjust names, but keep everything new inside ./rag):
+- rag/__init__.py
+- rag/README.md
+- rag/config.py
+- rag/models.py
+- rag/chunking.py
+- rag/embeddings.py
+- rag/vector_store.py
+- rag/sparse_index.py
+- rag/hybrid_retriever.py
+- rag/rag_pipeline.py
+- rag/cli.py
+- rag/api_contracts.py (optional helper models for FastAPI)
+- rag/langgraph_tool.py
+- rag/storage/ (if you need helpers)
+
+================================================================================
+MULTI-TENANCY REQUIREMENTS
+================================================================================
+- Introduce tenant_id (string). Default behavior:
+  - API: tenant_id defaults to user_id if not provided.
+  - CLI: tenant_id required OR defaults to "default".
+- Every stored artifact must be tenant-scoped:
+  - Raw docs (optional)
+  - Chunk metadata
+  - Vector store collection / namespace
+  - Sparse index
+- Retrieval must only search within the specified tenant_id.
+
+================================================================================
+CHUNKING WITH OVERLAP (MUST HAVE)
+================================================================================
+Implement an overlapping chunker:
+- Inputs: text, chunk_size (chars or tokens), chunk_overlap
+- Output: ordered list of chunks with metadata:
+  - chunk_id, doc_id, tenant_id
+  - start/end offsets
+  - optional checksum/hash
+- Provide sensible defaults, e.g. chunk_size=1000 chars, overlap=200 chars.
+- Include at least 1 unit-test-like runnable demo or clear CLI command in README demonstrating the overlap behavior.
+
+================================================================================
+PERSISTENT VECTOR STORE
+================================================================================
+- Use the existing vector DB solution if present; otherwise implement a minimal persistent local vector store.
+- Must persist on disk inside existing data volume (e.g. ./data/rag/...) and work in Docker.
+- Store per-chunk:
+  - embedding vector
+  - chunk text
+  - metadata: tenant_id, doc_id, chunk_id, source filename, offsets
+- Embeddings: use OpenAI embeddings (OPENAI_API_KEY) (e.g., text-embedding-3-small) with a clean abstraction.
+
+================================================================================
+SPARSE INDEX + HYBRID SEARCH (MUST HAVE)
+================================================================================
+Hybrid retrieval must combine:
+1) Dense similarity score from vector store
+2) Sparse lexical score from a lightweight local index
+
+Constraints:
+- Must run locally in Docker with no external services required.
+- Persist sparse index on disk per tenant.
+- Recommended: SQLite FTS5 (built-in) OR a minimal BM25 implementation with persisted inverted index.
+- Provide a “hybrid” retrieval mode:
+  - final_score = alpha * dense_score + (1-alpha) * sparse_score
+  - alpha configurable, default e.g. 0.7
+- Provide “dense-only” and “sparse-only” as toggles for teaching comparison.
+
+================================================================================
+RAG PIPELINE
+================================================================================
+Implement:
+- Ingest pipeline:
+  - input: tenant_id, doc_id (generated), filename, raw_text
+  - chunk -> embed -> store vectors -> store sparse index entries
+  - return: doc_id, chunk_count
+- Retrieve pipeline:
+  - input: tenant_id, query_text, top_k, mode=[dense|sparse|hybrid]
+  - output: list of retrieved chunks with scores and metadata
+- Answer pipeline:
+  - input: tenant_id, question, top_k, mode
+  - step1 retrieve top_k
+  - step2 build a context prompt with chunk texts and short source labels
+  - step3 call OpenAI chat model to answer using ONLY provided context; if insufficient, say so
+  - output: answer + citations (e.g., [doc:filename#chunk_id]).
+
+================================================================================
+CLI (MUST HAVE)
+================================================================================
+Add a CLI under ./rag that can:
+1) Ingest a .txt file:
+   - python -m rag.cli ingest --tenant TENANT --file ./path/to/doc.txt --chunk-size 1000 --chunk-overlap 200
+2) Ingest from stdin (paste text):
+   - cat doc.txt | python -m rag.cli ingest --tenant TENANT --stdin --name mydoc.txt
+3) Query / retrieve only:
+   - python -m rag.cli retrieve --tenant TENANT --query "..." --top-k 5 --mode hybrid
+4) Ask (RAG answer):
+   - python -m rag.cli ask --tenant TENANT --question "..." --top-k 5 --mode hybrid
+
+CLI must print useful teaching outputs:
+- chunk_count, example chunk boundaries (first 1-2 chunks)
+- retrieval results with scores and source labels
+- final answer with citations
+
+================================================================================
+BACKEND API INTEGRATION
+================================================================================
+Add new FastAPI endpoints (modify existing backend, but keep new code in ./rag):
+- POST /api/rag/ingest
+  body: { user_id, tenant_id?, filename, text }
+  returns: { doc_id, chunk_count }
+- POST /api/rag/ask
+  body: { user_id, tenant_id?, question, top_k?, mode? }
+  returns: { answer, citations: [...], retrieved_chunks: [...] }
+- (Optional) GET /api/rag/tenants/{tenant_id}/docs to list ingested docs.
+
+Ensure CORS is OK for frontend.
+Persist everything under data folder.
+
+================================================================================
+LANGGRAPH TOOL INTEGRATION (MUST HAVE)
+================================================================================
+Expose RAG as a LangGraph tool node:
+- Tool name: "rag_ask" (and optionally "rag_retrieve")
+- Inputs: tenant_id (default user_id), question, top_k, mode
+- Outputs: answer + citations + short summary of retrieved sources
+Update the agent system prompt/tool descriptions so the agent chooses RAG when:
+- user says “search in my uploaded documents”, “in the text I uploaded”, “based on the docs”, etc.
+
+================================================================================
+FRONTEND (RECOMMENDED MINIMAL UI)
+================================================================================
+Keep existing chat UI, add a small RAG demo panel/page:
+- Upload .txt (or paste text) + choose tenant_id + chunk settings (optional advanced)
+- Button: Ingest
+- Field: Ask question + mode selector (dense/sparse/hybrid) + top_k
+- Display:
+  - answer
+  - citations
+  - retrieved chunks (collapsible)
+
+If time is limited, implement only paste-text ingestion + ask; keep it simple.
+
+================================================================================
+DOCKERIZATION UPDATES
+================================================================================
+- Ensure backend container can import ./rag code.
+- Ensure data persistence for:
+  - vector store
+  - sparse index
+  - doc metadata
+Use docker-compose volume mapping under ./data.
+Update README with new commands.
+
+================================================================================
+QUALITY / ARCHITECTURE
+================================================================================
+- Keep SOLID and clean separation:
+  - chunker, embedding client, vector store, sparse index, retriever, pipeline orchestration
+- Add logging for ingestion and retrieval steps.
+- Add error handling (missing tenant, empty docs, OpenAI errors).
+- Add short documentation in ./rag/README.md:
+  - how to ingest, retrieve, ask
+  - how hybrid scoring works
+  - how multi-tenant isolation works
+  - teaching scripts: “dense vs sparse vs hybrid” comparisons
+
+Now implement the above delta:
+- Create the ./rag folder and all new files inside it.
+- Modify existing backend/frontend/docker configs minimally to integrate RAG.
+- Ensure everything runs via docker-compose up --build.
+- Provide example demo commands and example prompts in README.
+
+================================================================================
+RERANKING AFTER RETRIEVAL (MUST HAVE)
+================================================================================
+Extend retrieval to demonstrate a 2-stage retrieval + rerank pattern:
+
+Stage 1 (Candidate generation):
+- Retrieve an initial candidate set from the vector store (dense) and/or hybrid retriever:
+  - parameters: top_k_candidates (default 30), mode=[dense|sparse|hybrid]
+- Return candidate chunks with initial scores.
+
+Stage 2 (Rerank):
+- Implement an optional rerank step that reorders the candidate chunks and selects final top_k (default 5).
+- Support multiple rerank strategies for teaching:
+
+  (A) LLM-based rerank (recommended):
+  - Use OpenAI chat model to score each candidate for relevance to the query.
+  - Input: query + chunk texts (truncate safely).
+  - Output: per-chunk relevance score (0-100) + short rationale (1 sentence max).
+  - Ensure structured output (JSON schema) to keep it deterministic.
+  - final_score = beta * normalized_initial_score + (1-beta) * normalized_rerank_score
+  - beta configurable, default 0.3 (i.e., rerank dominates).
+  - Cache rerank results keyed by (tenant_id, query_hash, chunk_id, model) to reduce cost.
+
+  (B) Embedding cross-sim rerank (cheap local fallback):
+  - Compute query embedding once and cosine similarity against candidate embeddings already stored.
+  - This is mostly redundant with dense retrieval but useful as a “cheap rerank demo”.
+  - Keep it as an option to compare with LLM rerank.
+
+Rerank toggles:
+- retrieval request supports:
+  - rerank: boolean (default false)
+  - rerank_strategy: ["llm", "embed"]
+  - top_k_candidates, top_k_final
+  - beta (mixing weight)
+- The CLI must support rerank:
+  - python -m rag.cli retrieve --tenant TENANT --query "..." --mode hybrid --rerank --rerank-strategy llm --top-k-candidates 30 --top-k 5
+  - python -m rag.cli ask --tenant TENANT --question "..." --mode hybrid --rerank --rerank-strategy llm
+
+Outputs for teaching:
+- Always print both:
+  1) initial ranking list (top 10 candidates) with initial scores
+  2) reranked final list with rerank scores and combined scores
+- In API response include:
+  - candidates_before_rerank (limited, e.g. top 10)
+  - final_after_rerank
+  - rerank_metadata (strategy, model, beta, top_k_candidates)
+
+Integration points:
+- Add module(s) under ./rag for reranking:
+  - rag/rerank.py (interfaces + implementations)
+  - rag/rerank_llm.py (LLM rerank)
+  - rag/rerank_embed.py (embedding rerank)
+- Update rag/hybrid_retriever.py and rag/rag_pipeline.py to optionally rerank.
+
+IMPORTANT:
+- Rerank must be tenant-scoped and must not leak candidates across tenants.
+- Add README section: “Why reranking helps” + a demo script comparing:
+  - dense top_k vs dense+rerank
+  - hybrid top_k vs hybrid+rerank
+
+================================================================================
+INGESTION MUST NOT REQUIRE REST UPLOAD
+================================================================================
+Do NOT rely on REST API for document upload/ingestion. The primary ingestion method must be filesystem path based.
+
+Required ingestion modes:
+1) Path-based ingestion (primary):
+   - User provides a local path to a .txt file (or a folder of .txt files).
+   - The app reads the file(s), stores the raw text, chunks (with overlap), embeds chunks, and indexes them (dense + sparse).
+   - CLI command examples:
+     - python -m rag.cli ingest --tenant TENANT --path ./docs/manual.txt --chunk-size 1000 --chunk-overlap 200
+     - python -m rag.cli ingest --tenant TENANT --path ./docs/ --recursive --glob "*.txt"
+
+2) Optional paste/ststdin ingestion (secondary):
+   - cat doc.txt | python -m rag.cli ingest --tenant TENANT --stdin --name manual.txt
+
+REST API:
+- You MAY keep /api/rag/ask for frontend Q&A convenience, but do NOT implement /api/rag/ingest that accepts raw text payloads as the main ingestion flow.
+- If an ingest endpoint exists at all, it should accept ONLY a server-side file path (NOT file upload content):
+  - POST /api/rag/ingest_path { tenant_id, path, chunk_size, chunk_overlap, recursive?, glob? }
+  - This is optional; CLI must work even without it.
+
+================================================================================
+RAW TEXT MUST BE STORED (MUST HAVE)
+================================================================================
+Store both:
+A) Raw document text (full text)
+B) Chunk texts (per chunk)
+
+Persistence requirements:
+- Persist under ./data/rag/<tenant_id>/...
+- Save raw docs as:
+  - ./data/rag/<tenant_id>/docs/<doc_id>__<original_filename>.txt
+  - plus metadata JSON:
+    - ./data/rag/<tenant_id>/docs/<doc_id>.json
+      { doc_id, tenant_id, filename, source_path, ingested_at, size_chars, chunk_size, chunk_overlap, hash }
+
+- Chunk metadata persisted as:
+  - ./data/rag/<tenant_id>/chunks/<doc_id>.json
+  - Include chunk_id, offsets, checksum/hash, and a short source label.
+
+Vector store must also store:
+- chunk text (or a pointer to chunk file) AND metadata.
+- Do not lose the chunk text, because it is needed to construct RAG context.
+
+Sparse index must store:
+- chunk_id -> text reference (or the text itself if needed for FTS).
+
+================================================================================
+SECURITY / SAFETY FOR PATH INGESTION
+================================================================================
+- Add a configurable "allowed_ingest_roots" list (env var or config file).
+- Only allow ingesting files under these roots.
+- Reject paths outside allowed roots, and provide clear error messages.
+- In Docker, mount a host folder to a known container path (e.g. ./docs -> /app/docs) and set allowed root accordingly.
+
+Example:
+- docker-compose mounts: ./docs:/app/docs
+- allowed_ingest_roots default: ["/app/docs"]
+
+================================================================================
+FRONTEND CHANGE (IF FRONTEND INGEST EXISTS)
+================================================================================
+If you keep a frontend ingestion UI, it must NOT upload file content via REST.
+Instead, it should:
+- Ask user for a server-visible path (e.g. /app/docs/manual.txt) + tenant + chunk params
+- Call optional /api/rag/ingest_path endpoint
+- Or show CLI instructions and skip ingestion UI entirely (acceptable).
+
+================================================================================
+DOC LISTING (OPTIONAL)
+================================================================================
+Provide a simple way to list ingested docs per tenant:
+- CLI: python -m rag.cli list-docs --tenant TENANT
+- It reads ./data/rag/<tenant_id>/docs/*.json
+
+================================================================================
+KEEP ALL OTHER REQUIREMENTS
+================================================================================
+All previously stated requirements remain:
+- multi-tenant isolation
+- overlapping chunking
+- dense/sparse/hybrid retrieval
+- reranking after retrieval (LLM + embed strategy)
+- RAG answer generation with citations
+- persistence on disk
+

@@ -1,0 +1,12 @@
+{
+  "doc_id": "776f734cfe8ba765",
+  "tenant_id": "teszt_felhasznalo",
+  "filename": "test_document.txt",
+  "source_path": "/Users/adriangulyas/Development/robotdreams/vector_embeddings/test/test_document.txt",
+  "ingested_at": "2025-12-16T15:23:47.325480",
+  "size_chars": 6601,
+  "chunk_size": 800,
+  "chunk_overlap": 150,
+  "hash": "226aa66f1c2101dc0a4d4d937a474648a80295160fec8c66fcade8b7f6e9de58",
+  "chunk_count": 0
+}

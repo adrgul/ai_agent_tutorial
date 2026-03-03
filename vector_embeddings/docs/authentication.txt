@@ -1,0 +1,72 @@
+# System Authentication Guide
+
+## Overview
+Our system uses a robust authentication mechanism based on JWT (JSON Web Tokens) to secure API endpoints and user sessions.
+
+## How Authentication Works
+
+### Step 1: User Login
+When a user logs in with their credentials (username and password), the system verifies them against the database. If valid, a JWT token is generated containing the user ID, email, and role.
+
+### Step 2: Token Generation
+The JWT token is signed using a secret key and includes an expiration time (typically 24 hours). The token structure contains three parts: header, payload, and signature.
+
+### Step 3: API Requests
+For subsequent API requests, the client must include the JWT token in the Authorization header using the Bearer scheme:
+```
+Authorization: Bearer <token>
+```
+
+### Step 4: Token Validation
+The server validates the token on each request by:
+1. Checking the signature
+2. Verifying the expiration time
+3. Extracting user information from the payload
+
+## Security Features
+
+### Token Expiration
+Tokens expire after 24 hours to minimize security risks. Users must re-authenticate after expiration.
+
+### Refresh Tokens
+We also provide refresh tokens (valid for 7 days) that can be used to obtain new access tokens without requiring the user to log in again.
+
+### Password Requirements
+- Minimum 8 characters
+- Must include uppercase and lowercase letters
+- Must include at least one number
+- Must include at least one special character
+
+## Multi-Factor Authentication (MFA)
+
+For enhanced security, we support optional MFA using:
+- SMS verification codes
+- Authenticator apps (TOTP)
+- Email verification
+
+## Session Management
+
+User sessions are tracked server-side with the following properties:
+- Session ID stored in secure cookie
+- IP address tracking
+- Device fingerprinting
+- Automatic logout after 30 minutes of inactivity
+
+## Common Issues
+
+### Token Expired Error
+If you receive a "Token expired" error, you need to refresh your token using the refresh endpoint or log in again.
+
+### Invalid Token Error
+This occurs when:
+- The token signature is invalid
+- The token has been tampered with
+- The token format is incorrect
+
+## Best Practices
+
+1. Always store tokens securely (never in localStorage)
+2. Use HTTPS for all API communication
+3. Implement token refresh logic in your client
+4. Clear tokens on logout
+5. Never expose tokens in URLs or logs
